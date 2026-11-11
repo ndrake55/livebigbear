@@ -12,7 +12,8 @@ Stack: Next.js on Vercel, Neon Postgres, GitHub.
 
 ## Phases
 0. Setup — GitHub repo, Vercel project, Neon database, domain. (done)
-1. Roads — confirm Caltrans District 8 chain control feed covers Hwy 18, 330, 38;
+1. Roads — Caltrans District 8 chain control feed for Hwy 330, Hwy 18 (via Crestline, front side,
+   back side) and Hwy 38;
    home screen with verdict and routes; route detail page; status saved to Neon on a schedule.
 2. Weather — National Weather Service tiles, per-community picker, airport station readings.
 3. Launch — installable to the home screen as a PWA (app manifest, icons, install hint),
