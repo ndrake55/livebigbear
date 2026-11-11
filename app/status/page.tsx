@@ -3,13 +3,16 @@ import Link from 'next/link';
 import { CC_URL, getSnapshot } from '@/lib/caltrans';
 import { ROUTES } from '@/lib/routes';
 import { hasDb } from '@/lib/db';
+import { COMMUNITIES } from '@/lib/communities';
+import { getWeather, isFresh } from '@/lib/weather';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Data check', robots: { index: false } };
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const snap = await getSnapshot();
+  const [snap, weather] = await Promise.all([getSnapshot(), getWeather(COMMUNITIES[0])]);
+  const obsFresh = isFresh(weather.observation, new Date());
   const valley = snap.points.filter((p) => ['18', '330', '38'].includes(p.route));
   const routeFor = (p: (typeof valley)[number]) => ROUTES.find((r) => r.match(p))?.name ?? 'not assigned';
 
@@ -37,6 +40,28 @@ export default async function StatusPage() {
               {snap.points.length} in District 8, {valley.length} on Hwy 18, 330 or 38
             </span>
           </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Weather service forecast</span>
+            <span className="row-sub">
+              {weather.ok
+                ? `${weather.periods.length} forecast periods, ${weather.alerts.length} active alerts, snow next 24 hr: ${weather.snow24hIn ?? 'no data'}`
+                : weather.error}
+            </span>
+          </span>
+          <span className={`tag ${weather.ok ? 'tag-open' : 'tag-closed'}`}>{weather.ok ? 'Working' : 'Failing'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Airport weather station</span>
+            <span className="row-sub">
+              {weather.observation
+                ? `${weather.observation.tempF ?? '?'}°F, wind ${weather.observation.windMph ?? '?'} mph, read at ${weather.observation.at}`
+                : 'No reading returned'}
+            </span>
+          </span>
+          <span className={`tag ${obsFresh ? 'tag-open' : 'tag-unknown'}`}>{obsFresh ? 'Fresh' : 'Stale or missing'}</span>
         </div>
         <div className="row">
           <span className="row-text">
