@@ -65,6 +65,14 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--lin
 .state-r1, .state-r2, .state-r3 { color: #5c3200; }
 .state-closed::before { background: #5a1220; }
 .state-closed { color: #5a1220; }
+.install { position: fixed; left: 12px; right: 12px; bottom: 12px; max-width: 456px; margin: 0 auto; background: var(--navy); color: #fff; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 8px 24px rgba(18, 32, 46, 0.35); z-index: 10; }
+.install-text { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.install-text strong { font-size: 15px; }
+.install-text span { color: #e3eaf1; }
+.install-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.install-actions button { min-height: 44px; padding: 0 16px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.install-go { background: #fff; color: var(--navy); border: 0; }
+.install-close { background: transparent; color: #fff; border: 1px solid #5d6f82; }
 .chips { display: flex; gap: 8px; overflow-x: auto; margin: -4px -20px; padding: 4px 20px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
 .chip { min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #c5cfd9; background: #fff; font-weight: 500; font-size: 14px; white-space: nowrap; display: inline-flex; align-items: center; text-decoration: none; }
