@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ROUTES, routeById } from '@/lib/routes';
 import { EXPLAIN, HEADLINE, LABEL, parseLevel } from '@/lib/status';
+import { loadMapData } from '@/lib/mapdata';
 import { loadSnapshot } from '@/lib/view';
+import { MapView } from '../../map/map-view';
 
 export const revalidate = 120;
 
@@ -28,6 +30,7 @@ export default async function RoutePage({ params, searchParams }: Props) {
   if (!routeById(id)) notFound();
   const snap = await loadSnapshot(demo);
   const r = snap.routes.find((x) => x.def.id === id)!;
+  const mapData = await loadMapData(snap, { demo: snap.demo, weather: false });
   const q = snap.demo ? '?demo=storm' : '';
 
   return (
@@ -48,6 +51,11 @@ export default async function RoutePage({ params, searchParams }: Props) {
         <h2>{HEADLINE[r.level]}</h2>
         <p>{EXPLAIN[r.level]}</p>
         {r.since && r.level !== 'unknown' && <div className="since">Reported since {r.since}</div>}
+      </section>
+
+      <section>
+        <h2>On the map</h2>
+        <MapView data={mapData} focus={id} />
       </section>
 
       {r.points.length > 0 && (

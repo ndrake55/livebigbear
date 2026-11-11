@@ -1,19 +1,20 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { LEVEL_COLOR, mapPoints } from '@/lib/mapdata';
+import { LEVEL_COLOR, loadMapData } from '@/lib/mapdata';
 import { loadSnapshot, pacificTime } from '@/lib/view';
-import { RoadMap } from './road-map';
+import { MapView } from './map-view';
 
 export const revalidate = 120;
 
 export const metadata: Metadata = {
-  title: 'Big Bear road map: live chain control on Hwy 18, 330 and 38',
-  description: 'Live map of Caltrans chain control points on every road into the Big Bear Valley.',
+  title: 'Big Bear road map: live chain control, cameras and weather',
+  description:
+    'Live map of chain control, road cameras and weather on every road into the Big Bear Valley: Hwy 18, 330 and 38.',
 };
 
 const LEGEND: { color: string; text: string }[] = [
   { color: LEVEL_COLOR.open, text: 'Open' },
-  { color: LEVEL_COLOR.r2, text: 'Chains' },
+  { color: LEVEL_COLOR.r2, text: 'Chains (R1 to R3)' },
   { color: LEVEL_COLOR.closed, text: 'Closed' },
   { color: LEVEL_COLOR.unknown, text: 'No data' },
 ];
@@ -21,7 +22,7 @@ const LEGEND: { color: string; text: string }[] = [
 export default async function MapPage({ searchParams }: { searchParams: Promise<{ demo?: string }> }) {
   const { demo } = await searchParams;
   const snap = await loadSnapshot(demo);
-  const points = mapPoints(snap);
+  const data = await loadMapData(snap, { demo: snap.demo, weather: true });
 
   return (
     <div className="shell shell-map">
@@ -37,7 +38,7 @@ export default async function MapPage({ searchParams }: { searchParams: Promise<
         <div className="notice">Caltrans data is not responding, so the map has no road status right now.</div>
       )}
 
-      <RoadMap points={points} />
+      <MapView data={data} />
 
       <div className="legend" aria-label="Map key">
         {LEGEND.map((l) => (
@@ -48,8 +49,7 @@ export default async function MapPage({ searchParams }: { searchParams: Promise<
         ))}
       </div>
       <p className="note">
-        Each dot is a Caltrans chain control point. Tap one for details. Dots mark where a stretch of road
-        starts, so check the roads list for the full picture.
+        Tap a road, camera or temperature for details. Zoom in to see every Caltrans chain control point.
       </p>
     </div>
   );

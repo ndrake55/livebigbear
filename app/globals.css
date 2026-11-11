@@ -103,3 +103,38 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--lin
 .map-popup-desc { font-size: 13px; color: var(--muted); }
 .maplibregl-popup-content { border-radius: 12px; padding: 14px 16px; }
 .maplibregl-popup-close-button { font-size: 20px; width: 32px; height: 32px; }
+.shell-map .chips { flex: none; }
+button.chip { font-family: inherit; cursor: pointer; color: var(--ink); }
+button.chip.chip-on { color: #fff; }
+.map-wrap-small { flex: none; height: 300px; }
+.mk { z-index: 1; }
+.mk-road { z-index: 3; }
+.mk-weather { z-index: 2; }
+.pin { font: inherit; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(18, 32, 46, 0.35); }
+/* The visible pin is smaller than the 44px tap area around it. */
+.mk-point .pin, .mk-cam .pin { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; color: #fff; font-size: 11px; font-weight: 800; padding: 0; position: relative; }
+.mk-point .pin::after, .mk-cam .pin::after { content: ''; position: absolute; inset: -9px; }
+.mk-point .pin { background: var(--c); }
+.mk-cam .pin { background: var(--navy); }
+.mk-road .pin { min-height: 36px; padding: 0 6px 0 12px; gap: 8px; border-radius: 18px; border: 2.5px solid #fff; background: var(--c); color: #fff; font-size: 14px; font-weight: 800; white-space: nowrap; }
+.pin-road-status { min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; background: #fff; color: var(--c); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+.mk-weather .pin { min-height: 30px; padding: 0 10px; gap: 4px; border-radius: 15px; background: #fff; color: var(--ink); border: 2px solid var(--accent); font-size: 14px; font-weight: 800; }
+.map:not(.near) .mk-point { display: none; }
+.map.near .mk-road { display: none; }
+.map.hide-roads .mk-road, .map.hide-roads .mk-point { display: none; }
+.map.hide-cams .mk-cam { display: none; }
+.map.hide-weather .mk-weather { display: none; }
+.panel { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 4; background: var(--card); border-radius: 14px; padding: 14px 48px 14px 16px; box-shadow: 0 6px 20px rgba(18, 32, 46, 0.3); display: flex; flex-direction: column; gap: 6px; max-height: calc(100% - 20px); overflow-y: auto; }
+.panel-close { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border: 0; background: none; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; }
+.panel-status { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.panel-title { font-size: 16px; font-weight: 700; }
+.panel-sub { font-size: 13px; color: var(--muted); }
+.panel-link { align-self: flex-start; min-height: 44px; display: inline-flex; align-items: center; font-weight: 700; font-size: 15px; color: var(--accent); }
+.panel-media { width: 100%; border-radius: 10px; background: #dfe6ec; display: block; }
+img.panel-media { max-height: 240px; object-fit: contain; }
+.panel-video { aspect-ratio: 16 / 9; border: 0; }
+.row-button { width: 100%; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.row-button:hover, .row-button:focus-visible { background: #f7f9fb; }
+.map:not(.near) .mk-weather-extra { display: none; }
+.map:not(.near) .mk-cam .pin { width: 24px; height: 24px; border-width: 2px; }
+.map:not(.near) .mk-cam .pin svg { width: 12px; height: 12px; }
