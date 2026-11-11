@@ -33,7 +33,7 @@ export const EXPLAIN: Record<Level, string> = {
   r2: 'Chains are required on all vehicles except four-wheel and all-wheel drive with snow tires on all four wheels. Carry chains anyway.',
   r3: 'Chains are required on every vehicle, with no exceptions.',
   closed: 'Caltrans reports this road closed. Pick another route.',
-  unknown: 'Caltrans is not reporting a status for this road right now. Check QuickMap before you drive.',
+  unknown: 'Caltrans is not reporting a status for this road right now. Check with Caltrans before you drive.',
 };
 
 /** Turn a Caltrans status code (R-0, R-1, ...) into a level. */
@@ -73,7 +73,7 @@ export function verdict(routes: VerdictInput[]): Verdict {
   if (known.length === 0) {
     return {
       headline: 'Road status unavailable',
-      detail: 'Caltrans data is not responding. Check QuickMap before you drive.',
+      detail: 'Caltrans data is not responding. Check with Caltrans before you drive.',
     };
   }
   const closed = known.filter((r) => r.level === 'closed').length;

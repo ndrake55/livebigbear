@@ -5,7 +5,6 @@ import { parseLevel, worst, SEVERITY, type Level } from './status';
 // Docs: https://cwwp2.dot.ca.gov/documentation/cc/cc.htm
 export const CC_URL =
   process.env.CALTRANS_CC_URL ?? 'https://cwwp2.dot.ca.gov/data/d8/cc/ccStatusD08.json';
-export const QUICKMAP_URL = 'https://quickmap.dot.ca.gov/';
 
 export interface RouteSummary {
   def: RouteDef;

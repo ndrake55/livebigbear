@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { QUICKMAP_URL } from '@/lib/caltrans';
 import { LABEL, verdict } from '@/lib/status';
 import { loadSnapshot, pacificTime } from '@/lib/view';
 
@@ -46,10 +45,6 @@ export default async function Home({
           ))}
         </div>
       </section>
-
-      <a className="button" href={QUICKMAP_URL} target="_blank" rel="noopener noreferrer">
-        See the roads on Caltrans QuickMap
-      </a>
 
       <footer className="foot">
         Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.
