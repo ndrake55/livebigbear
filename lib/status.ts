@@ -55,10 +55,15 @@ export function worst(levels: Level[]): Level {
 
 export const isChains = (l: Level) => l === 'r1' || l === 'r2' || l === 'r3';
 
-export interface VerdictInput {
+export interface VerdictRoute {
+  id: string;
   name: string;
-  via: string;
   level: Level;
+}
+
+export interface VerdictApproach {
+  via: string;
+  legs: string[];
 }
 
 export interface Verdict {
@@ -66,8 +71,12 @@ export interface Verdict {
   detail: string;
 }
 
-/** The one-line answer at the top of the home screen. Routes are passed in order of preference. */
-export function verdict(routes: VerdictInput[]): Verdict {
+/**
+ * The one-line answer at the top of the home screen.
+ * The headline counts roads. The "easiest way" looks at whole approaches, because a clear
+ * Hwy 330 is no help if the Hwy 18 front side beyond it needs chains.
+ */
+export function verdict(routes: VerdictRoute[], approaches: VerdictApproach[]): Verdict {
   const known = routes.filter((r) => r.level !== 'unknown');
   const n = routes.length;
   if (known.length === 0) {
@@ -89,10 +98,18 @@ export function verdict(routes: VerdictInput[]): Verdict {
   else if (closed > 0) headline = `${closed} of ${n} routes closed`;
   else headline = `Chains required on ${chains} of ${n} routes`;
 
-  const best = known.reduce((a, b) => (SEVERITY[b.level] < SEVERITY[a.level] ? b : a));
+  const levelOf = new Map(routes.map((r) => [r.id, r.level]));
+  // An approach is as bad as its worst leg. Skip any approach with a leg we have no data for.
+  const scored = approaches
+    .map((a) => ({ via: a.via, levels: a.legs.map((id) => levelOf.get(id) ?? 'unknown') }))
+    .filter((a) => !a.levels.includes('unknown'))
+    .map((a) => ({ via: a.via, level: worst(a.levels) }));
+  if (scored.length === 0) return { headline, detail: 'Check each road below before you drive.' };
+
+  const best = scored.reduce((a, b) => (SEVERITY[b.level] < SEVERITY[a.level] ? b : a));
   let detail: string;
   if (best.level === 'open') detail = `Easiest way up right now: ${best.via}.`;
-  else if (best.level === 'closed') detail = 'Every route into the valley is reported closed.';
-  else detail = `Every open route needs chains. Lightest restriction: ${best.name} (${LABEL[best.level]}).`;
+  else if (best.level === 'closed') detail = 'Every way into the valley is reported closed.';
+  else detail = `Every way up needs chains. Lightest restriction: ${best.via} (${LABEL[best.level]}).`;
   return { headline, detail };
 }

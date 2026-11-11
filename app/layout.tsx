@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { InstallHint } from './install-hint';
+import { Nav } from './nav';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.livebigbear.com'),
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
+        <Nav />
         <InstallHint />
       </body>
     </html>
