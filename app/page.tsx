@@ -3,6 +3,7 @@ import { COMMUNITIES, communityBySlug } from '@/lib/communities';
 import { LABEL, verdict } from '@/lib/status';
 import { getWeather, STORM_WEATHER } from '@/lib/weather';
 import { loadSnapshot, pacificTime } from '@/lib/view';
+import { InstallLink } from './install-hint';
 import { WeatherSection } from './weather-section';
 
 export const revalidate = 120;
@@ -82,6 +83,9 @@ export default async function Home({
       <footer className="foot">
         Road status comes from Caltrans and weather from the National Weather Service. Both can lag conditions on
         the road. Always follow posted signs.
+        <div style={{ marginTop: 10 }}>
+          <InstallLink />
+        </div>
       </footer>
     </div>
   );

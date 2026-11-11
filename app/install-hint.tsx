@@ -2,63 +2,109 @@
 
 import { useEffect, useState } from 'react';
 
-const KEY = 'lbb-install-dismissed';
+const KEY = 'lbb-install-hidden-until';
+const HIDE_DAYS = 14;
+/** Fired by the "Add to home screen" link in the footer to bring the steps back. */
+export const SHOW_EVENT = 'lbb-show-install';
 
 type InstallEvent = Event & { prompt: () => Promise<void> };
+type Mode = 'none' | 'android' | 'ios' | 'manual';
 
-const remember = () => {
+const hiddenForNow = () => {
   try {
-    localStorage.setItem(KEY, '1');
+    return Number(localStorage.getItem(KEY) ?? 0) > Date.now();
   } catch {
-    // Storage can be blocked (private mode). The hint just shows again next visit.
+    return false; // Storage can be blocked (private mode). The hint just shows again.
   }
 };
 
-/** A one-time bar offering to add the app to the phone's home screen. */
+const hideForAWhile = () => {
+  try {
+    localStorage.setItem(KEY, String(Date.now() + HIDE_DAYS * 24 * 3600 * 1000));
+  } catch {
+    // ignore
+  }
+};
+
+const isIos = () => {
+  const ua = navigator.userAgent;
+  return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1);
+};
+
+const isInstalled = () =>
+  window.matchMedia('(display-mode: standalone)').matches ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+function ShareIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ verticalAlign: '-3px', margin: '0 2px' }}
+    >
+      <path d="M12 15V3" />
+      <path d="m7 8 5-5 5 5" />
+      <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+    </svg>
+  );
+}
+
+/** A bar offering to add the app to the home screen. Comes back after two weeks if closed. */
 export function InstallHint() {
-  const [mode, setMode] = useState<'none' | 'android' | 'ios'>('none');
+  const [mode, setMode] = useState<Mode>('none');
   const [event, setEvent] = useState<InstallEvent | null>(null);
 
   useEffect(() => {
-    try {
-      if (localStorage.getItem(KEY)) return;
-    } catch {
-      // ignore
-    }
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    if (standalone) return;
-
-    const ua = navigator.userAgent;
-    const ios = /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1);
-    // Every browser on iPhone and iPad can add to the home screen from its Share menu.
-    if (ios) setMode('ios');
+    let installEvent: InstallEvent | null = null;
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
-      setEvent(e as InstallEvent);
-      setMode('android');
+      installEvent = e as InstallEvent;
+      setEvent(installEvent);
+      if (!hiddenForNow() && !isInstalled()) setMode('android');
     };
+    // The footer link always shows the steps, even after "Close".
+    const onShow = () => setMode(installEvent ? 'android' : isIos() ? 'ios' : 'manual');
+
     window.addEventListener('beforeinstallprompt', onPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener(SHOW_EVENT, onShow);
+    if (!hiddenForNow() && !isInstalled() && isIos()) setMode('ios');
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener(SHOW_EVENT, onShow);
+    };
   }, []);
 
   if (mode === 'none') return null;
 
   const close = () => {
-    remember();
+    hideForAWhile();
     setMode('none');
   };
 
   return (
     <aside className="install" aria-label="Add to home screen">
       <div className="install-text">
-        <strong>Keep Live Big Bear on your home screen</strong>
-        {mode === 'ios' ? (
-          <span>Tap the Share button in your browser, then “Add to Home Screen.”</span>
-        ) : (
-          <span>One tap to check the roads before you drive.</span>
+        <strong>Add Live Big Bear to your home screen</strong>
+        {mode === 'ios' && (
+          <ol className="install-steps">
+            <li>
+              Tap the Share button <ShareIcon /> in your browser’s toolbar.
+            </li>
+            <li>Scroll down and tap “Add to Home Screen.”</li>
+            <li>Tap “Add.”</li>
+          </ol>
+        )}
+        {mode === 'android' && <span>One tap to check the roads before you drive.</span>}
+        {mode === 'manual' && (
+          <span>Open your browser’s menu and choose “Install app” or “Add to Home Screen.”</span>
         )}
       </div>
       <div className="install-actions">
@@ -75,9 +121,18 @@ export function InstallHint() {
           </button>
         )}
         <button type="button" className="install-close" onClick={close}>
-          Not now
+          Close
         </button>
       </div>
     </aside>
+  );
+}
+
+/** Footer link that reopens the install steps. */
+export function InstallLink() {
+  return (
+    <button type="button" className="linklike" onClick={() => window.dispatchEvent(new Event(SHOW_EVENT))}>
+      Add to home screen
+    </button>
   );
 }
