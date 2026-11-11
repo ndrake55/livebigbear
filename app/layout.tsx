@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { InstallHint } from './install-hint';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.livebigbear.com'),
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
   },
   description:
     'Live chain control and road status for every route into the Big Bear Valley: Hwy 330, Hwy 18 and Hwy 38.',
+  applicationName: 'Live Big Bear',
+  appleWebApp: { capable: true, title: 'Live Big Bear', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {
@@ -20,7 +23,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <InstallHint />
+      </body>
     </html>
   );
 }

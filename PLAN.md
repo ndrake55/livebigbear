@@ -15,7 +15,8 @@ Stack: Next.js on Vercel, Neon Postgres, GitHub.
 1. Roads — confirm Caltrans District 8 chain control feed covers Hwy 18, 330, 38;
    home screen with verdict and routes; route detail page; status saved to Neon on a schedule.
 2. Weather — National Weather Service tiles, per-community picker, airport station readings.
-3. Launch — installable to home screen, search basics, live on livebigbear.com.
+3. Launch — installable to the home screen as a PWA (app manifest, icons, install hint),
+   search basics, live on livebigbear.com.
 4. Alerts — text and email signup; notify when a road's status changes.
 5. Map, cameras and history — interactive road map with status colors and pins;
    Cams tab; seven-day history; per-community pages.
