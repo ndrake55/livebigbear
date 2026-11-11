@@ -6,6 +6,8 @@ import { hasDb } from '@/lib/db';
 import { COMMUNITIES } from '@/lib/communities';
 import { getWeather, isFresh } from '@/lib/weather';
 import { getCameras } from '@/lib/cameras';
+import { isMailConfigured } from '@/lib/mailer';
+import { ensureEmailTables, subscriberCounts } from '@/lib/subscribers';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Data check', robots: { index: false } };
@@ -14,6 +16,16 @@ export const metadata: Metadata = { title: 'Data check', robots: { index: false 
 export default async function StatusPage() {
   const [snap, weather, cams] = await Promise.all([getSnapshot(), getWeather(COMMUNITIES[0]), getCameras()]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
+  let subs: Record<string, number> | null = null;
+  let subsError = '';
+  if (hasDb()) {
+    try {
+      await ensureEmailTables();
+      subs = await subscriberCounts();
+    } catch (e) {
+      subsError = e instanceof Error ? e.message : 'database error';
+    }
+  }
   const obsFresh = isFresh(weather.observation, new Date());
   const valley = snap.points.filter((p) => ['18', '330', '38'].includes(p.route));
   const routeFor = (p: (typeof valley)[number]) => ROUTES.find((r) => r.match(p))?.name ?? 'not assigned';
@@ -84,6 +96,30 @@ export default async function StatusPage() {
               error message means the lines will not draw.
             </span>
           </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Email sending (Amazon SES)</span>
+            <span className="row-sub">
+              {isMailConfigured()
+                ? 'All four settings found. Signup is switched on.'
+                : 'Needs SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, SES_REGION and EMAIL_FROM. Signup stays hidden until then.'}
+            </span>
+          </span>
+          <span className={`tag ${isMailConfigured() ? 'tag-open' : 'tag-unknown'}`}>
+            {isMailConfigured() ? 'Set' : 'Not set up'}
+          </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Email subscribers</span>
+            <span className="row-sub">
+              {subs
+                ? `${subs.confirmed ?? 0} confirmed, ${subs.pending ?? 0} waiting to confirm, ${subs.unsubscribed ?? 0} unsubscribed, ${subs.suppressed ?? 0} blocked`
+                : subsError || 'No database'}
+            </span>
+          </span>
+          {subsError && <span className="tag tag-closed">Failing</span>}
         </div>
         <div className="row">
           <span className="row-text">
