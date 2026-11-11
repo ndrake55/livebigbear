@@ -32,8 +32,8 @@ export function InstallHint() {
 
     const ua = navigator.userAgent;
     const ios = /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1);
-    const iosSafari = ios && !/CriOS|FxiOS|EdgiOS/.test(ua);
-    if (iosSafari) setMode('ios');
+    // Every browser on iPhone and iPad can add to the home screen from its Share menu.
+    if (ios) setMode('ios');
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
@@ -56,7 +56,7 @@ export function InstallHint() {
       <div className="install-text">
         <strong>Keep Live Big Bear on your home screen</strong>
         {mode === 'ios' ? (
-          <span>Tap the Share button, then “Add to Home Screen.”</span>
+          <span>Tap the Share button in your browser, then “Add to Home Screen.”</span>
         ) : (
           <span>One tap to check the roads before you drive.</span>
         )}
