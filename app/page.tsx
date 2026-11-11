@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { COMMUNITIES, communityBySlug } from '@/lib/communities';
+import { APPROACHES } from '@/lib/routes';
 import { LABEL, verdict } from '@/lib/status';
 import { getWeather, STORM_WEATHER } from '@/lib/weather';
 import { loadSnapshot, pacificTime } from '@/lib/view';
@@ -27,7 +28,10 @@ export default async function Home({
     const qs = params.toString();
     return qs ? `/?${qs}` : '/';
   };
-  const v = verdict(snap.routes.map((r) => ({ name: r.def.name, via: r.def.via, level: r.level })));
+  const v = verdict(
+    snap.routes.map((r) => ({ id: r.def.id, name: r.def.name, level: r.level })),
+    APPROACHES,
+  );
   const q = snap.demo ? '?demo=storm' : '';
 
   return (

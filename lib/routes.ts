@@ -23,10 +23,10 @@ export interface RouteDef {
 const between = (v: number | null, lo: number, hi: number) => v !== null && v >= lo && v <= hi;
 
 /**
- * The four ways into the valley, in the order most visitors prefer them.
- * Hwy 18 is split by longitude: the front side runs from Running Springs to the dam,
- * the back side from Big Bear City down to Lucerne Valley.
- * These bounds are a first estimate: check /status against real data and tune them.
+ * The roads into the valley, in the order most visitors prefer them.
+ * Hwy 18 is split by longitude into three stretches: San Bernardino up through Crestline
+ * to Running Springs, the front side from Running Springs to the dam, and the back side
+ * from Big Bear City down to Lucerne Valley. Check /status to see where each point lands.
  */
 export const ROUTES: RouteDef[] = [
   {
@@ -35,6 +35,13 @@ export const ROUTES: RouteDef[] = [
     sub: 'Highland to Running Springs',
     via: 'Hwy 330 from Highland',
     match: (p) => p.route === '330',
+  },
+  {
+    id: '18-crestline',
+    name: 'Hwy 18 via Crestline',
+    sub: 'San Bernardino to Running Springs',
+    via: 'Hwy 18 through Crestline',
+    match: (p) => p.route === '18' && between(p.lon, -117.4, -117.13),
   },
   {
     id: '18-front',
@@ -60,3 +67,19 @@ export const ROUTES: RouteDef[] = [
 ];
 
 export const routeById = (id: string) => ROUTES.find((r) => r.id === id);
+
+export interface Approach {
+  via: string;
+  legs: string[]; // route ids driven in order
+}
+
+/**
+ * Complete ways to drive into the valley. Hwy 330 and Hwy 18 via Crestline both end at
+ * Running Springs, so either one still needs the Hwy 18 front side to reach the lake.
+ */
+export const APPROACHES: Approach[] = [
+  { via: 'Hwy 330 from Highland, then Hwy 18', legs: ['330', '18-front'] },
+  { via: 'Hwy 18 through Crestline', legs: ['18-crestline', '18-front'] },
+  { via: 'Hwy 38 from Redlands', legs: ['38'] },
+  { via: 'Hwy 18 from Lucerne Valley', legs: ['18-back'] },
+];
