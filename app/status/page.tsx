@@ -5,13 +5,15 @@ import { ROUTES } from '@/lib/routes';
 import { hasDb } from '@/lib/db';
 import { COMMUNITIES } from '@/lib/communities';
 import { getWeather, isFresh } from '@/lib/weather';
+import { getCameras } from '@/lib/cameras';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Data check', robots: { index: false } };
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const [snap, weather] = await Promise.all([getSnapshot(), getWeather(COMMUNITIES[0])]);
+  const [snap, weather, cams] = await Promise.all([getSnapshot(), getWeather(COMMUNITIES[0]), getCameras()]);
+  const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   const obsFresh = isFresh(weather.observation, new Date());
   const valley = snap.points.filter((p) => ['18', '330', '38'].includes(p.route));
   const routeFor = (p: (typeof valley)[number]) => ROUTES.find((r) => r.match(p))?.name ?? 'not assigned';
@@ -62,6 +64,26 @@ export default async function StatusPage() {
             </span>
           </span>
           <span className={`tag ${obsFresh ? 'tag-open' : 'tag-unknown'}`}>{obsFresh ? 'Fresh' : 'Stale or missing'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Caltrans camera feed</span>
+            <span className="row-sub">
+              {cams.ok ? `${caltransCams.length} cameras on Hwy 18, 330 or 38` : cams.error}
+            </span>
+          </span>
+          <span className={`tag ${cams.ok && caltransCams.length > 0 ? 'tag-open' : 'tag-closed'}`}>
+            {cams.ok ? (caltransCams.length > 0 ? 'Working' : 'No cameras found') : 'Failing'}
+          </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Road shapes for map lines</span>
+            <span className="row-sub">
+              Open <a href="/api/road-lines">/api/road-lines</a>. A long list of numbers means it works; an
+              error message means the lines will not draw.
+            </span>
+          </span>
         </div>
         <div className="row">
           <span className="row-text">
