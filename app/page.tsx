@@ -1,16 +1,31 @@
 import Link from 'next/link';
+import { COMMUNITIES, communityBySlug } from '@/lib/communities';
 import { LABEL, verdict } from '@/lib/status';
+import { getWeather, STORM_WEATHER } from '@/lib/weather';
 import { loadSnapshot, pacificTime } from '@/lib/view';
+import { WeatherSection } from './weather-section';
 
 export const revalidate = 120;
 
 export default async function Home({
   searchParams,
 }: {
-  searchParams: Promise<{ demo?: string }>;
+  searchParams: Promise<{ demo?: string; c?: string }>;
 }) {
-  const { demo } = await searchParams;
-  const snap = await loadSnapshot(demo);
+  const { demo, c } = await searchParams;
+  const picked = communityBySlug(c);
+  const community = picked ?? COMMUNITIES[0];
+  const [snap, weather] = await Promise.all([
+    loadSnapshot(demo),
+    demo === 'storm' ? Promise.resolve(STORM_WEATHER) : getWeather(community),
+  ]);
+  const href = (slug?: string) => {
+    const params = new URLSearchParams();
+    if (slug) params.set('c', slug);
+    if (demo === 'storm') params.set('demo', 'storm');
+    const qs = params.toString();
+    return qs ? `/?${qs}` : '/';
+  };
   const v = verdict(snap.routes.map((r) => ({ name: r.def.name, via: r.def.via, level: r.level })));
   const q = snap.demo ? '?demo=storm' : '';
 
@@ -22,6 +37,22 @@ export default async function Home({
         </Link>
         <div className="checked">Checked {pacificTime(snap.fetchedAt)}</div>
       </header>
+
+      <nav className="chips" aria-label="Community">
+        <Link href={href()} className={`chip${picked ? '' : ' chip-on'}`} aria-current={picked ? undefined : 'page'}>
+          Whole valley
+        </Link>
+        {COMMUNITIES.map((x) => (
+          <Link
+            key={x.slug}
+            href={href(x.slug)}
+            className={`chip${picked?.slug === x.slug ? ' chip-on' : ''}`}
+            aria-current={picked?.slug === x.slug ? 'page' : undefined}
+          >
+            {x.name}
+          </Link>
+        ))}
+      </nav>
 
       {snap.demo && <div className="notice">Sample storm data for preview. Not real conditions.</div>}
 
@@ -46,8 +77,11 @@ export default async function Home({
         </div>
       </section>
 
+      <WeatherSection weather={weather} place={picked ? picked.name : 'whole valley'} />
+
       <footer className="foot">
-        Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.
+        Road status comes from Caltrans and weather from the National Weather Service. Both can lag conditions on
+        the road. Always follow posted signs.
       </footer>
     </div>
   );
