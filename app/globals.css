@@ -65,3 +65,15 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--lin
 .state-r1, .state-r2, .state-r3 { color: #5c3200; }
 .state-closed::before { background: #5a1220; }
 .state-closed { color: #5a1220; }
+.chips { display: flex; gap: 8px; overflow-x: auto; margin: -4px -20px; padding: 4px 20px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { min-height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid #c5cfd9; background: #fff; font-weight: 500; font-size: 14px; white-space: nowrap; display: inline-flex; align-items: center; text-decoration: none; }
+.chip-on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--card); border-radius: 14px; padding: 14px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile-label, .tile-note { font-size: 13px; color: var(--muted); }
+.tile-value { font-weight: 700; font-size: 24px; letter-spacing: -0.5px; line-height: 1.15; }
+.tile-value-small { font-size: 20px; }
+.tiles + .note { margin-top: 8px; }
+.temp { font-size: 14px; font-weight: 600; white-space: nowrap; }
+.alert { background: #5a1220; color: #fff; border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
