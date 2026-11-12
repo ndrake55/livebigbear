@@ -11,6 +11,7 @@ import { runProbes } from '@/lib/probes';
 import { getTrails } from '@/lib/trails';
 import { getOffRoad } from '@/lib/offroad';
 import { getLake } from '@/lib/lake';
+import { getListed } from '@/lib/trailheads';
 import { getAir } from '@/lib/air';
 import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
@@ -21,7 +22,7 @@ export const metadata: Metadata = { title: 'Data check', robots: { index: false 
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const [snap, weather, cams, fireData, probes, air, camps, trails, offroad, lake] = await Promise.all([
+  const [snap, weather, cams, fireData, probes, air, camps, trails, offroad, lake, listed] = await Promise.all([
     getSnapshot(),
     getWeather(COMMUNITIES[0]),
     getCameras(),
@@ -32,6 +33,7 @@ export default async function StatusPage() {
     getTrails(),
     getOffRoad(),
     getLake(),
+    getListed(),
   ]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   let subs: Record<string, number> | null = null;
@@ -169,6 +171,15 @@ export default async function StatusPage() {
             <span className="row-sub">{lake.ok ? `Water ${lake.tempF ?? '?'}°F, ${lake.downFt ?? '?'} ft down, ${lake.ramps.map((r) => `${r.name} ${r.open ? 'open' : 'closed'}`).join(', ') || 'no ramps found'}` : lake.error}</span>
           </span>
           <span className={`tag ${lake.ok ? 'tag-open' : 'tag-closed'}`}>{lake.ok ? 'Working' : 'Problem'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Trailheads</span>
+            <span className="row-sub">
+              {`Trails with a checked trailhead: ${trails.trails.filter((t) => t.start?.kind === 'checked').length}; from the Forest Service site list: ${trails.trails.filter((t) => t.start?.kind === 'listed').length}; best guess: ${trails.trails.filter((t) => t.start?.kind === 'guess').length}. Best-guess trails: ${trails.trails.filter((t) => t.start?.kind === 'guess').map((t) => `${t.name} ${t.number}`).join('; ')}. Site list: ${listed.note}`}
+            </span>
+          </span>
+          <span className={`tag ${listed.ok ? 'tag-open' : 'tag-unknown'}`}>{listed.ok ? 'Working' : 'List not read'}</span>
         </div>
         <div className="row">
           <span className="row-text">

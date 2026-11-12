@@ -73,7 +73,7 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
       {shown.length > 0 && (
         <div className="list">
           {shown.map((t) => (
-            <div key={t.id} className="row row-static">
+            <Link key={t.id} href={`/trails/${t.slug}`} className="row">
               <span className="row-text">
                 <span className="row-name">{t.name}</span>
                 <span className="row-sub">
@@ -87,7 +87,7 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
                 </span>
               </span>
               {t.miles !== null && <span className="temp">{t.miles} mi</span>}
-            </div>
+            </Link>
           ))}
         </div>
       )}

@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { COMMUNITIES } from '@/lib/communities';
-import { getLake, waterNote } from '@/lib/lake';
+import { directionsUrl } from '@/lib/arcgis';
+import { getLake, RAMPS, waterNote } from '@/lib/lake';
 import { buildToday } from '@/lib/today';
 import { getWeather } from '@/lib/weather';
+import { PlaceMap } from '../place-map';
 
 export const revalidate = 1800;
 
@@ -17,6 +19,18 @@ export const metadata: Metadata = {
 export default async function LakePage() {
   const [lake, weather] = await Promise.all([getLake(), getWeather(COMMUNITIES[0])]);
   const wind = buildToday([], weather, new Date()).lines.find((l) => l.activity === 'On the lake');
+
+  const status = (key: string) => lake.ramps.find((r) => r.name === key)?.open ?? null;
+  const pins = RAMPS.map((r) => {
+    const open = status(r.key);
+    return {
+      lat: r.lat,
+      lon: r.lon,
+      label: `${r.name}${open === null ? '' : open ? ', open' : ', closed'}`,
+      text: r.key === 'East ramp' ? 'East' : 'West',
+      tone: open === null ? ('start' as const) : open ? ('good' as const) : ('poor' as const),
+    };
+  });
 
   return (
     <div className="shell">
@@ -58,20 +72,33 @@ export default async function LakePage() {
             <span className="temp">{lake.downFt} ft down</span>
           </div>
         )}
-        {lake.ramps.map((r) => (
-          <div key={r.name} className="row row-static">
-            <span className="row-text">
-              <span className="row-name">{r.name === 'East ramp' ? 'East public launch ramp' : 'West public launch ramp'}</span>
-              <span className="row-sub">{r.name === 'East ramp' ? 'North Shore Drive, east end' : 'North Shore Drive, near the dam'}</span>
-            </span>
-            <span className={`tag ${r.open ? 'today-good' : 'today-poor'}`}>{r.open ? 'Open' : 'Closed'}</span>
-          </div>
-        ))}
       </div>
+
+      <section>
+        <h2>Public launch ramps</h2>
+        <PlaceMap pins={pins} label="Map of Big Bear Lake with the public launch ramps" />
+        <div className="list" style={{ marginTop: 12 }}>
+          {RAMPS.map((r) => {
+            const open = status(r.key);
+            return (
+              <a key={r.key} href={directionsUrl(r.address)} target="_blank" rel="noopener noreferrer" className="row">
+                <span className="row-text">
+                  <span className="row-name">{r.name}</span>
+                  <span className="row-sub">
+                    {r.full} · {r.where}
+                  </span>
+                  <span className="row-sub">{r.address.replace(', CA', '')} · Tap for directions</span>
+                </span>
+                {open !== null && <span className={`tag ${open ? 'today-good' : 'today-poor'}`}>{open ? 'Open' : 'Closed'}</span>}
+              </a>
+            );
+          })}
+        </div>
+      </section>
 
       <p className="note">
         Lake figures are read from the Big Bear Municipal Water District, which manages the lake, and are checked
-        hourly. Boats need a lake permit and a quagga mussel inspection before launching. Wind: National Weather
+        hourly. Ramp positions on the map are approximate; directions use the street address. Boats need a lake permit and a quagga mussel inspection before launching. Wind: National Weather
         Service.
       </p>
     </div>

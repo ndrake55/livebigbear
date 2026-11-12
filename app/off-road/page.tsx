@@ -30,7 +30,7 @@ export default async function OffRoadPage() {
       {data.routes.length > 0 && (
         <div className="list">
           {data.routes.map((r) => (
-            <div key={r.id} className="row row-static">
+            <Link key={r.id} href={`/off-road/${r.slug}`} className="row">
               <span className="row-text">
                 <span className="row-name">{[r.number, r.name].filter(Boolean).join(' ')}</span>
                 <span className="row-sub">
@@ -41,7 +41,7 @@ export default async function OffRoadPage() {
               {r.openNow !== null && (
                 <span className={`tag ${r.openNow ? 'today-good' : 'today-poor'}`}>{r.openNow ? 'In season' : 'Out of season'}</span>
               )}
-            </div>
+            </Link>
           ))}
         </div>
       )}
