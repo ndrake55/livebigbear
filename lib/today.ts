@@ -111,7 +111,9 @@ export function buildToday(routes: RouteSummary[], weather: Weather, now: Date, 
   const reading = air?.now ?? null;
   if (reading) {
     const rating: Rating = reading.level <= 1 ? 'good' : reading.level === 2 ? 'fair' : 'poor';
-    const bits = [reading.aqi !== null ? `AQI ${reading.aqi}` : '', reading.pollutant].filter(Boolean).join(', ');
+    const bits = [air?.nowIsForecast ? "Today's forecast" : '', reading.aqi !== null ? `AQI ${reading.aqi}` : '', reading.pollutant]
+      .filter(Boolean)
+      .join(', ');
     const next = air?.tomorrow ? ` Tomorrow: ${air.tomorrow.category}.` : '';
     lines.push({ activity: 'Air quality', rating, label: shortCategory(reading.category), detail: `${bits || reading.category}.${next}` });
   }

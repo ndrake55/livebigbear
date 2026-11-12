@@ -119,7 +119,7 @@ describe('lake page reader', () => {
   });
 });
 
-import { parseForecast, parseObservations } from './air';
+import { parseForecast, parseForecastToday, parseObservations } from './air';
 import { parseCampgrounds, tidyName } from './camping';
 
 describe('air quality', () => {
@@ -143,6 +143,8 @@ describe('air quality', () => {
     ];
     expect(parseForecast(fc, '2026-11-11')).toEqual({ aqi: null, category: 'Moderate', level: 2, pollutant: 'O3', area: '' });
     expect(parseForecast(fc, '2026-11-13')).toBeNull();
+    expect(parseForecastToday(fc, '2026-11-11')).toMatchObject({ aqi: 40, category: 'Good' });
+    expect(parseForecastToday(fc, '2026-11-20')).toBeNull();
   });
 });
 

@@ -93,7 +93,9 @@ export default async function StatusPage() {
           <span className="row-text">
             <span className="row-name">Caltrans camera feed</span>
             <span className="row-sub">
-              {cams.ok ? `${caltransCams.length} cameras on Hwy 18, 330 or 38` : cams.error}
+              {cams.ok
+                ? `${caltransCams.length} cameras on Hwy 18, 330 or 38. Feed has ${cams.tally?.inFeed ?? '?'}; ${cams.tally?.inArea ?? '?'} in the area on roads ${cams.tally?.roadsInArea || 'none'}; ${cams.tally?.onOurRoads ?? '?'} on our roads; ${cams.tally?.inService ?? '?'} in service; ${cams.tally?.withImage ?? '?'} with an image.`
+                : cams.error}
             </span>
           </span>
           <span className={`tag ${cams.ok && caltransCams.length > 0 ? 'tag-open' : 'tag-closed'}`}>
@@ -118,7 +120,7 @@ export default async function StatusPage() {
               {!air.configured
                 ? 'Needs AIRNOW_API_KEY.'
                 : air.ok
-                  ? `Now: ${air.now ? `${air.now.category}${air.now.aqi !== null ? `, AQI ${air.now.aqi}` : ''} (${air.now.pollutant || 'no pollutant named'}, ${air.now.area || 'no area named'})` : 'no reading'}. Tomorrow: ${air.tomorrow?.category ?? 'no forecast'}`
+                  ? `Now: ${air.now ? `${air.now.category}${air.now.aqi !== null ? `, AQI ${air.now.aqi}` : ''}${air.nowIsForecast ? ' (from today\'s forecast, no measured reading)' : ''}` : 'no reading'}. Tomorrow: ${air.tomorrow?.category ?? 'no forecast'}. Requests: ${air.note}`
                   : air.error}
             </span>
           </span>
