@@ -280,7 +280,7 @@ describe('air readings as AirNow sends them now', () => {
   });
 });
 
-import { knownUses } from './trail-uses';
+import { knownDifficulty, knownUses } from './trail-uses';
 
 describe('researched trail uses', () => {
   const seg = (attributes: Record<string, unknown>) => ({ attributes });
@@ -306,5 +306,8 @@ describe('researched trail uses', () => {
     expect(by('2000.16')).toMatchObject({ uses: ['hike', 'horse'], usesChecked: true });
     expect(by('1E99')).toMatchObject({ uses: ['hike'], usesChecked: false, useNote: '' });
     expect(by('2W01')).toMatchObject({ uses: [], motorized: true });
+    expect(by('1E12').difficulty).toEqual({ level: 'moderate', label: 'Beginner to intermediate' });
+    expect(by('1E99').difficulty).toBeNull();
+    expect(knownDifficulty('1w04')).toEqual({ level: 'hard', label: 'Strenuous' });
   });
 });
