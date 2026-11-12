@@ -23,7 +23,8 @@ Stack: Next.js on Vercel, Neon Postgres, GitHub.
    Cams tab; seven-day history; per-community pages.
 6. Self-service ads — Advertise page, Stripe subscription checkout, one-click approval,
    slots that empty themselves when a subscription ends.
-Later — lake level, events, aircraft overhead for fire season.
+7 to 14. Explore — see "Explore: the Live Big Bear experience" below.
+Later — aircraft overhead for fire season.
 
 ## Alerts
 Two different products, not one product at two prices.
@@ -47,6 +48,40 @@ Two different products, not one product at two prices.
   time for approval.
 - Recheck Stripe and Twilio fees, then set the text cap.
 - Decide the price only after seeing how many people take the free email.
+
+## Explore: the Live Big Bear experience
+Year-round reasons to open the app, built on free public data. The rule for everything here:
+**show it live.** Trail guides already exist. What does not exist is each trail, the lake and
+each campground shown as it is right now: weather at that spot, daylight left, fire restrictions,
+whether it is open. No descriptions are invented: pages use official facts (length, allowed uses,
+season) and leave room for local knowledge.
+
+Source status below was checked on 2026-11-11. "Confirmed" means the address and format were seen.
+"To verify" means it exists but its Big Bear coverage has not been seen yet; each gets a row on
+`/status` when built, as the road and weather feeds did.
+
+| Phase | Feature | What makes it live | Source | Status | Needs from owner |
+|---|---|---|---|---|---|
+| 7 | Today in Big Bear (home card) | One line per activity: drive, hike, lake, ski. Sunrise, sunset, daylight left | Data already in the app; sun times are calculated | Ready | Nothing |
+| 8 | Fire and smoke | Active fires near the valley on the map and in a banner; red flag warnings | CAL FIRE incident feed (JSON and GeoJSON); NWS alerts (already used) | Confirmed | Nothing |
+| 9 | Lake | Lake level, water temperature, launch ramps open or closed, wind on the lake | Big Bear Municipal Water District home page (no data feed, so read from the page); NWS wind | Confirmed, fragile | A courtesy email to the district |
+| 10 | Trails: hiking, biking, off-road | Weather and daylight at each trailhead; off-road season open or closed; forest alerts | Forest Service trails layer and Motor Vehicle Use Map layer (public, CC BY 4.0); forest alerts page | To verify | Nothing |
+| 11 | Fishing | When trout were last stocked | CDFW fish planting schedule (updated in real time; no feed seen) | To verify | Nothing |
+| 12 | Air quality | AQI now and tomorrow | AirNow (free; endpoints changed in 2026, use the current ones; 500 requests an hour) | Confirmed | A free AirNow key |
+| 13 | Camping | Which campgrounds are open, with alerts | Recreation.gov data service (free) | Confirmed | A free Recreation.gov key |
+| 14 | Events | Listed by the businesses themselves | Self-service listings, built with phase 6 (free basic, paid featured) | Design only | Decide pricing |
+
+Notes
+- No public events feed exists, and an events calendar without Facebook data failed in Helendale.
+  Self-service listings are the only version worth building.
+- Ski resort snow reports have no public feed: link to the resort.
+- The USGS lake gauge for Big Bear appears to be discontinued, so lake level comes from the water district.
+- Sections reorder by season: snow and roads first in winter; lake, trails and fire first in summer.
+- Navigation: add an Explore tab holding Trails, Lake, Camping and Fire once two of them exist.
+- Each trail and campground gets its own page for search.
+
+Order: 7 and 8 first (no accounts, fast), then 10 (largest, biggest search payoff), then 9 and 11,
+then 12 and 13 when the keys exist.
 
 ## Cameras
 Grouped by decision: Getting there (Caltrans highway cameras; Veterans Park, Big Bear Blvd),
