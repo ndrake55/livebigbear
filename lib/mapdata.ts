@@ -1,6 +1,7 @@
 import type { Snapshot } from './caltrans';
 import { getCameras, type Camera } from './cameras';
 import { COMMUNITIES } from './communities';
+import { getFires, SAMPLE_FIRE, type Fire } from './fires';
 import { HEADLINE, LABEL, SEVERITY, parseLevel, type Level } from './status';
 import { getWeather, STORM_WEATHER } from './weather';
 
@@ -65,6 +66,7 @@ export interface MapData {
   points: MapPoint[];
   cameras: Camera[];
   weather: MapWeather[];
+  fires: Fire[];
 }
 
 export async function loadMapData(snap: Snapshot, opts: { demo: boolean; weather: boolean }): Promise<MapData> {
@@ -104,8 +106,9 @@ export async function loadMapData(snap: Snapshot, opts: { demo: boolean; weather
     }
   }
 
-  const [cams, weather] = await Promise.all([
+  const [cams, fireData, weather] = await Promise.all([
     getCameras(),
+    opts.demo ? Promise.resolve({ ok: true, fires: [SAMPLE_FIRE] }) : getFires(),
     opts.weather
       ? Promise.all(
           COMMUNITIES.map(async (c): Promise<MapWeather> => {
@@ -126,5 +129,11 @@ export async function loadMapData(snap: Snapshot, opts: { demo: boolean; weather
       : Promise.resolve([] as MapWeather[]),
   ]);
 
-  return { roads, points, cameras: cams.cameras, weather: weather.filter((w) => w.temp !== null) };
+  return {
+    roads,
+    points,
+    cameras: cams.cameras,
+    weather: weather.filter((w) => w.temp !== null),
+    fires: fireData.fires,
+  };
 }

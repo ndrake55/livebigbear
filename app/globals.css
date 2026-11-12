@@ -138,6 +138,19 @@ img.panel-media { max-height: 240px; object-fit: contain; }
 .map:not(.near) .mk-weather-extra { display: none; }
 .map:not(.near) .mk-cam .pin { width: 24px; height: 24px; border-width: 2px; }
 .map:not(.near) .mk-cam .pin svg { width: 12px; height: 12px; }
+.today-good { background: #d3ecef; color: #0a4650; }
+.today-fair { background: #ffdfae; color: #5c3200; }
+.today-poor { background: #5a1220; color: #fff; }
+.today-info { background: #e3e8ee; color: #2f3f4f; }
+.fire { background: #7a1c12; color: #fff; border-radius: 16px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+.fire .eyebrow { color: #ffd9d2; }
+.fire-item { display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+.fire-item strong { font-size: 17px; }
+.fire-note { margin: 4px 0 0; font-size: 13px; color: #ffd9d2; }
+.fire-note a { color: #fff; font-weight: 700; }
+.mk-fire { z-index: 4; }
+.mk-fire .pin { width: 32px; height: 32px; border-radius: 50%; border: 2.5px solid #fff; background: #b3261e; color: #fff; padding: 0; position: relative; }
+.mk-fire .pin::after { content: ''; position: absolute; inset: -8px; }
 .card { background: var(--card); border-radius: 16px; padding: 16px; }
 .card h2 { margin-bottom: 4px; }
 .card .note { margin-top: 10px; }

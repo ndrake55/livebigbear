@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Camera } from '@/lib/cameras';
+import { describeFire, type Fire } from '@/lib/fires';
 import type { MapData, MapPoint, MapRoad, MapWeather } from '@/lib/mapdata';
 
 // Free OpenStreetMap-based map tiles from OpenFreeMap. No key needed.
@@ -20,7 +21,8 @@ type Selected =
   | { kind: 'road'; road: MapRoad }
   | { kind: 'point'; point: MapPoint }
   | { kind: 'camera'; camera: Camera }
-  | { kind: 'weather'; weather: MapWeather };
+  | { kind: 'weather'; weather: MapWeather }
+  | { kind: 'fire'; fire: Fire };
 type Layers = { roads: boolean; cams: boolean; weather: boolean };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -29,6 +31,7 @@ const ICONS: Record<string, string[]> = {
   x: ['M6 6l12 12', 'M18 6L6 18'],
   camera: ['M3 8h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z', 'M15 11l6-3v8l-6-3'],
   snow: ['M12 3v18', 'M4.2 7.5l15.6 9', 'M19.8 7.5l-15.6 9'],
+  fire: ['M12 3c1 4 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z'],
 };
 
 function icon(name: string, size = 16): SVGSVGElement {
@@ -143,6 +146,22 @@ function Panel({ item, onClose, focus }: { item: Selected; onClose: () => void; 
           </a>
         )}
         <div className="panel-sub">Camera: {c.credit}</div>
+      </>
+    );
+  } else if (item.kind === 'fire') {
+    const f = item.fire;
+    body = (
+      <>
+        <div className="panel-status">
+          <span className="map-dot" style={{ background: '#B3261E' }} />
+          Fire incident
+        </div>
+        <div className="panel-title">{f.name}</div>
+        <div className="panel-sub">{describeFire(f)}</div>
+        <div className="panel-sub">From CAL FIRE, and it can lag. For evacuations follow official orders.</div>
+        <a className="panel-link" href={f.url} target="_blank" rel="noopener noreferrer">
+          CAL FIRE details
+        </a>
       </>
     );
   } else {
@@ -267,6 +286,12 @@ export function MapView({ data, focus }: { data: MapData; focus?: string }) {
             const node = pin(cls, `${w.name}: ${w.temp} degrees, ${w.short}`, () => setSelected({ kind: 'weather', weather: w }), ...kids);
             place(node, w.lon, w.lat);
           });
+        }
+
+        // Fires always show, at every zoom and whatever the layer switches say.
+        for (const f of data.fires) {
+          const node = pin('mk-fire', `Fire: ${f.name}`, () => setSelected({ kind: 'fire', fire: f }), icon('fire', 16));
+          place(node, f.lon, f.lat);
         }
 
         const syncZoom = () => box.classList.toggle('near', Boolean(focus) || m.getZoom() >= NEAR_ZOOM);

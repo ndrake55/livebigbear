@@ -6,6 +6,8 @@ import { hasDb } from '@/lib/db';
 import { COMMUNITIES } from '@/lib/communities';
 import { getWeather, isFresh } from '@/lib/weather';
 import { getCameras } from '@/lib/cameras';
+import { FIRE_RADIUS_MILES, getFires } from '@/lib/fires';
+import { runProbes } from '@/lib/probes';
 import { isMailConfigured } from '@/lib/mailer';
 import { ensureEmailTables, subscriberCounts } from '@/lib/subscribers';
 
@@ -14,7 +16,13 @@ export const metadata: Metadata = { title: 'Data check', robots: { index: false 
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const [snap, weather, cams] = await Promise.all([getSnapshot(), getWeather(COMMUNITIES[0]), getCameras()]);
+  const [snap, weather, cams, fireData, probes] = await Promise.all([
+    getSnapshot(),
+    getWeather(COMMUNITIES[0]),
+    getCameras(),
+    getFires(),
+    runProbes(),
+  ]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   let subs: Record<string, number> | null = null;
   let subsError = '';
@@ -90,6 +98,17 @@ export default async function StatusPage() {
         </div>
         <div className="row">
           <span className="row-text">
+            <span className="row-name">CAL FIRE incident feed</span>
+            <span className="row-sub">
+              {fireData.ok
+                ? `${fireData.fires.length} active within ${FIRE_RADIUS_MILES} miles${fireData.fires.length ? `: ${fireData.fires.map((f) => f.name).join(', ')}` : ''}`
+                : fireData.error}
+            </span>
+          </span>
+          <span className={`tag ${fireData.ok ? 'tag-open' : 'tag-closed'}`}>{fireData.ok ? 'Working' : 'Failing'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
             <span className="row-name">Road shapes for map lines</span>
             <span className="row-sub">
               Open <a href="/api/road-lines">/api/road-lines</a>. A long list of numbers means it works; an
@@ -129,6 +148,24 @@ export default async function StatusPage() {
           <span className={`tag ${hasDb() ? 'tag-open' : 'tag-unknown'}`}>{hasDb() ? 'Set' : 'Missing'}</span>
         </div>
       </div>
+      <section>
+        <h2>Sources being tested for upcoming features</h2>
+        <div className="list">
+          {probes.map((p) => (
+            <div key={p.name} className="row">
+              <span className="row-text">
+                <span className="row-name">{p.name}</span>
+                <span className="row-sub">{p.summary}</span>
+                <span className="row-sub" style={{ wordBreak: 'break-word' }}>
+                  {p.detail}
+                </span>
+              </span>
+              <span className={`tag ${p.ok ? 'tag-open' : 'tag-closed'}`}>{p.ok ? 'Working' : 'Failing'}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {valley.length > 0 && (
         <div className="scroll">
           <table>
