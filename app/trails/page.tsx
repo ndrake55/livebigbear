@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { COMMUNITIES } from '@/lib/communities';
 import { buildToday } from '@/lib/today';
+import { popularity, ratingsFor, ratingText } from '@/lib/ratings';
 import { getTrails, USE_LABEL, type TrailUse } from '@/lib/trails';
 import { getWeather } from '@/lib/weather';
 
@@ -17,29 +18,41 @@ export const metadata: Metadata = {
 /** The list starts with trails this close to Big Bear Lake village. */
 const NEAR_MILES = 10;
 
+const SORTS = [
+  { key: 'popular', label: 'Most popular' },
+  { key: 'near', label: 'Nearest' },
+  { key: 'az', label: 'A to Z' },
+] as const;
+
 const FILTERS: { key: TrailUse; label: string }[] = [
   { key: 'hike', label: 'Hiking' },
   { key: 'bike', label: 'Biking' },
   { key: 'horse', label: 'Horses' },
 ];
 
-export default async function TrailsPage({ searchParams }: { searchParams: Promise<{ for?: string; all?: string }> }) {
+export default async function TrailsPage({ searchParams }: { searchParams: Promise<{ for?: string; all?: string; sort?: string }> }) {
   const params = await searchParams;
   const asked = params.for;
   const all = params.all === '1';
   const want = FILTERS.find((f) => f.key === asked)?.key;
-  const [data, weather] = await Promise.all([getTrails(), getWeather(COMMUNITIES[0])]);
+  const sort = SORTS.find((x) => x.key === params.sort)?.key ?? 'popular';
+  const [data, weather, ratings] = await Promise.all([getTrails(), getWeather(COMMUNITIES[0]), ratingsFor('trail')]);
   const outlook = buildToday([], weather, new Date()).lines.find((l) => l.activity === 'Trails');
   // Motorcycle-only routes belong on the off-road page.
   const walkable = data.trails.filter((t) => !t.motorized && t.uses.some((u) => u !== 'moto'));
   const matching = want ? walkable.filter((t) => t.uses.includes(want)) : walkable;
   const near = matching.filter((t) => t.fromLake !== null && t.fromLake <= NEAR_MILES);
-  const shown = all ? matching : near;
+  const score = (t: (typeof matching)[number]) => popularity('trail', t.number, ratings.get(`trail:${t.slug}`));
+  // The list arrives nearest first, which also settles ties.
+  const shown = [...(all ? matching : near)];
+  if (sort === 'popular') shown.sort((a, b) => score(b) - score(a));
+  if (sort === 'az') shown.sort((a, b) => a.name.localeCompare(b.name));
   const hidden = matching.length - near.length;
-  const link = (use?: string, everything = all) => {
+  const link = (use?: string, everything = all, order: string = sort) => {
     const q = new URLSearchParams();
     if (use) q.set('for', use);
     if (everything) q.set('all', '1');
+    if (order !== 'popular') q.set('sort', order);
     const qs = q.toString();
     return qs ? `/trails?${qs}` : '/trails';
   };
@@ -52,9 +65,7 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
       <div className="title">
         <h1>Trails</h1>
         <p>
-          {all
-            ? 'Every Forest Service trail in the area, nearest to Big Bear Lake first.'
-            : `Forest Service trails within ${NEAR_MILES} miles of Big Bear Lake, nearest first.`}
+          {all ? 'Every Forest Service trail in the area.' : `Forest Service trails within ${NEAR_MILES} miles of Big Bear Lake.`}
         </p>
       </div>
 
@@ -86,6 +97,20 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
         ))}
       </nav>
 
+      <nav className="chips" aria-label="Sort order">
+        <span className="chips-label">Sort</span>
+        {SORTS.map((x) => (
+          <Link
+            key={x.key}
+            href={link(want, all, x.key)}
+            className={`chip${sort === x.key ? ' chip-on' : ''}`}
+            aria-current={sort === x.key ? 'page' : undefined}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
       {!data.ok && <div className="notice">The trail list is not available right now. Please try again later.</div>}
       {data.ok && shown.length === 0 && (
         <div className="notice">{hidden > 0 && !all ? `No trails for this use within ${NEAR_MILES} miles.` : 'No trails are listed for this use.'}</div>
@@ -93,8 +118,11 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
 
       {shown.length > 0 && (
         <div className="list">
-          {shown.map((t) => (
+          {shown.map((t, i) => {
+            const rating = ratings.get(`trail:${t.slug}`);
+            return (
             <Link key={t.id} href={`/trails/${t.slug}`} className="row">
+              {sort === 'popular' && <span className="rank">{i + 1}</span>}
               <span className="row-text">
                 <span className="row-name">{t.name}</span>
                 <span className="row-sub">
@@ -106,10 +134,12 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
                     .filter(Boolean)
                     .join(' · ')}
                 </span>
+                {rating && <span className="row-sub">★ {ratingText(rating)}</span>}
               </span>
               {t.miles !== null && <span className="temp">{t.miles} mi</span>}
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -125,7 +155,11 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
       )}
 
       <p className="note">
-Hiking, biking and horse labels were checked by hand for the trails nearest the lake. A trail marked
+        Most popular starts from our own ranking of the best-known trails and shifts as visitors rate them. Open
+        a trail to add your rating.
+      </p>
+      <p className="note">
+        Hiking, biking and horse labels were checked by hand for the trails nearest the lake. A trail marked
         only for hiking may also allow bikes or horses, so read the signs at the trailhead. Lengths cover the whole trail, which can run beyond the valley. Distance is a straight line from Big Bear
         Lake village to the nearest part of the trail. This list does not show snow, downed trees or closures, so
         check with the Big Bear Discovery Center before a long outing. Trail data: US Forest Service.
