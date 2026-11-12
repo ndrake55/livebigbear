@@ -9,6 +9,8 @@ const RADIUS_MILES = 20;
 
 export interface Campground {
   id: string;
+  /** For the page address, e.g. "serrano-232249". */
+  slug: string;
   name: string;
   lat: number;
   lon: number;
@@ -49,6 +51,7 @@ export function parseCampgrounds(json: unknown): Omit<Campground, 'tonight'>[] {
     if (miles > RADIUS_MILES) continue;
     out.push({
       id,
+      slug: `${tidyName(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}-${id.toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
       name: tidyName(name),
       lat,
       lon,
