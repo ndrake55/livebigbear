@@ -182,7 +182,7 @@ describe('campgrounds', () => {
   });
 });
 
-import { parseFeatures, seasonOpen, seasonText, tidyTitle } from './arcgis';
+import { directionsUrl, parseFeatures, seasonOpen, seasonText, startOf, tidyTitle } from './arcgis';
 import { buildTrails } from './trails';
 import { buildOffRoad } from './offroad';
 
@@ -202,6 +202,18 @@ describe('forest trails', () => {
     expect(trails[0]).toMatchObject({ miles: 2.3, uses: ['hike', 'bike'], number: '1E01' });
     expect(trails[0].fromLake).toBeLessThan(3);
     expect(trails[1].uses).toEqual(['hike', 'horse']);
+  });
+  it('finds the loose end nearest town for directions', () => {
+    // Two segments joined at -116.93: the joint is not a start, the two outer ends are.
+    const paths = [
+      [[-116.95, 34.25], [-116.93, 34.26]],
+      [[-116.93, 34.26], [-116.80, 34.30]],
+    ];
+    expect(startOf(paths, { lat: 34.2439, lon: -116.9114 })).toEqual({ lon: -116.95, lat: 34.25 });
+    expect(startOf([], { lat: 34, lon: -116 })).toBeNull();
+    expect(directionsUrl({ lat: 34.25, lon: -116.95 })).toBe('https://www.google.com/maps/dir/?api=1&destination=34.25,-116.95');
+    const trails = buildTrails(parseFeatures({ features: [seg({ trail_no: '1E01', trail_name: 'PINE KNOT', gis_miles: 2 }, paths)] }));
+    expect(trails[0]).toMatchObject({ slug: 'pine-knot-1e01', start: { lon: -116.95, lat: 34.25 } });
   });
   it('reads seasons, including ones that wrap the new year', () => {
     expect(seasonOpen('05/01-11/30', 11, 11)).toBe(true);

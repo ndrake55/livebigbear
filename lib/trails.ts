@@ -1,4 +1,4 @@
-import { type Feature, number, queryBox, text, tidyTitle } from './arcgis';
+import { type Feature, number, queryBox, slugify, startOf, text, tidyTitle } from './arcgis';
 import { milesBetween } from './fires';
 
 export const TRAILS_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/0';
@@ -10,8 +10,14 @@ export const USE_LABEL: Record<TrailUse, string> = { hike: 'Hiking', bike: 'Biki
 
 export interface Trail {
   id: string;
+  /** For the page address, e.g. "pine-knot-1e01". */
+  slug: string;
   name: string;
   number: string;
+  /** The trail as lines of [lon, lat], for the map. */
+  paths: number[][][];
+  /** The end of the trail nearest Big Bear Lake village, for directions. */
+  start: { lat: number; lon: number } | null;
   miles: number | null;
   uses: TrailUse[];
   /** Straight-line miles from Big Bear Lake village to the nearest part of the trail. */
@@ -51,7 +57,7 @@ export function buildTrails(features: Feature[]): Trail[] {
     const key = `${no}|${rawName.toUpperCase()}`;
     let t = byTrail.get(key);
     if (!t) {
-      t = { id: key, name: tidyTitle(rawName || `Trail ${no}`), number: no, miles: null, milesSum: 0, uses: [], fromLake: null, surface: '' };
+      t = { id: key, slug: slugify(`${rawName || 'trail'}-${no}`), paths: [], start: null, name: tidyTitle(rawName || `Trail ${no}`), number: no, miles: null, milesSum: 0, uses: [], fromLake: null, surface: '' };
       byTrail.set(key, t);
     }
     t.milesSum += number(a.gis_miles) ?? number(a.segment_length) ?? 0;
@@ -63,6 +69,7 @@ export function buildTrails(features: Feature[]): Trail[] {
     add('horse', 'pack_saddle');
     add('moto', 'motorcycle');
     if (!t.surface) t.surface = text(a.trail_surface).replace(/^[A-Z]+\s*-\s*/, '').toLowerCase();
+    t.paths.push(...f.paths);
     for (const path of f.paths) {
       for (const [lon, lat] of path) {
         const d = milesBetween(LAKE, { lat, lon });
@@ -74,6 +81,7 @@ export function buildTrails(features: Feature[]): Trail[] {
   return [...byTrail.values()]
     .map(({ milesSum, ...t }) => ({
       ...t,
+      start: startOf(t.paths, LAKE),
       miles: milesSum > 0 ? Math.round(milesSum * 10) / 10 : null,
       fromLake: t.fromLake === null ? null : Math.round(t.fromLake * 10) / 10,
       uses: order.filter((u) => t.uses.includes(u)),

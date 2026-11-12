@@ -110,3 +110,27 @@ export function pacificMonthDay(now: Date): { month: number; day: number } {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'numeric', day: 'numeric' }).formatToParts(now);
   return { month: Number(parts.find((p) => p.type === 'month')?.value), day: Number(parts.find((p) => p.type === 'day')?.value) };
 }
+
+export const slugify = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/**
+ * Where a line starts, for directions: the loose end nearest to `near`. A loose end is a point
+ * where only one segment stops, so joints between segments are not counted.
+ */
+export function startOf(paths: number[][][], near: { lat: number; lon: number }): { lat: number; lon: number } | null {
+  const key = (c: number[]) => `${c[0].toFixed(3)},${c[1].toFixed(3)}`;
+  const ends = paths.filter((p) => p.length > 0).flatMap((p) => [p[0], p[p.length - 1]]);
+  if (ends.length === 0) return null;
+  const count = new Map<string, number>();
+  for (const e of ends) count.set(key(e), (count.get(key(e)) ?? 0) + 1);
+  const loose = ends.filter((e) => count.get(key(e)) === 1);
+  const pool = loose.length > 0 ? loose : ends;
+  const dist = (c: number[]) => (c[1] - near.lat) ** 2 + ((c[0] - near.lon) * 0.83) ** 2;
+  const best = pool.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+  return { lon: best[0], lat: best[1] };
+}
+
+/** Opens turn-by-turn directions in the phone's map app. */
+export const directionsUrl = (to: { lat: number; lon: number } | string) =>
+  `https://www.google.com/maps/dir/?api=1&destination=${typeof to === 'string' ? encodeURIComponent(to) : `${to.lat},${to.lon}`}`;

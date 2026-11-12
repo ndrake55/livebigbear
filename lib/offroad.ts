@@ -1,4 +1,6 @@
-import { type Feature, number, queryBox, seasonOpen, seasonText, text, tidyTitle } from './arcgis';
+import { type Feature, number, queryBox, seasonOpen, seasonText, slugify, startOf, text, tidyTitle } from './arcgis';
+
+const LAKE = { lat: 34.2439, lon: -116.9114 };
 
 const MVUM = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_02/MapServer';
 export const MVUM_ROADS_URL = `${MVUM}/1`;
@@ -6,6 +8,11 @@ export const MVUM_TRAILS_URL = `${MVUM}/2`;
 
 export interface OffRoadRoute {
   id: string;
+  slug: string;
+  /** The route as lines of [lon, lat], for the map. */
+  paths: number[][][];
+  /** The end of the route nearest Big Bear Lake village, for directions. */
+  start: { lat: number; lon: number } | null;
   number: string; // forest road or trail number, e.g. "3N16"
   name: string;
   kind: 'road' | 'trail';
@@ -41,9 +48,10 @@ export function buildOffRoad(features: Feature[], kind: 'road' | 'trail', month:
     const key = `${kind}|${no}|${rawName.toUpperCase()}`;
     let r = byRoute.get(key);
     if (!r) {
-      r = { id: key, number: no, name: tidyTitle(rawName), kind, miles: null, sum: 0, vehicles: [], season: '', seasonLabel: '', openNow: null };
+      r = { id: key, slug: slugify(`${no}-${rawName}-${kind}`), paths: [], start: null, number: no, name: tidyTitle(rawName), kind, miles: null, sum: 0, vehicles: [], season: '', seasonLabel: '', openNow: null };
       byRoute.set(key, r);
     }
+    r.paths.push(...f.paths);
     r.sum += number(a.gis_miles) ?? number(a.seg_length) ?? 0;
     for (const v of VEHICLES) {
       if (isOpen(a[v.field]) && !r.vehicles.includes(v.label)) r.vehicles.push(v.label);
@@ -57,6 +65,7 @@ export function buildOffRoad(features: Feature[], kind: 'road' | 'trail', month:
   return [...byRoute.values()]
     .map(({ sum, ...r }) => ({
       ...r,
+      start: startOf(r.paths, LAKE),
       miles: sum > 0 ? Math.round(sum * 10) / 10 : null,
       vehicles: order.filter((l) => r.vehicles.includes(l)),
       seasonLabel: seasonText(r.season),
@@ -82,8 +91,8 @@ export async function getOffRoad(now = new Date()): Promise<OffRoadData> {
   const month = Number(parts.find((p) => p.type === 'month')?.value);
   const day = Number(parts.find((p) => p.type === 'day')?.value);
   const [roads, trails] = await Promise.allSettled([
-    queryBox(MVUM_ROADS_URL, { fields: ROAD_FIELDS }),
-    queryBox(MVUM_TRAILS_URL, { fields: ROAD_FIELDS }),
+    queryBox(MVUM_ROADS_URL, { fields: ROAD_FIELDS, geometry: true }),
+    queryBox(MVUM_TRAILS_URL, { fields: ROAD_FIELDS, geometry: true }),
   ]);
   const say = (label: string, r: PromiseSettledResult<Feature[]>) =>
     r.status === 'fulfilled' ? `${label}: ${r.value.length} segments` : `${label}: ${r.reason instanceof Error ? r.reason.message : 'failed'}`;
@@ -92,7 +101,7 @@ export async function getOffRoad(now = new Date()): Promise<OffRoadData> {
     ...(trails.status === 'fulfilled' ? buildOffRoad(trails.value, 'trail', month, day) : []),
     // Short spurs clutter the list, so only longer forest roads are shown.
     ...(roads.status === 'fulfilled' ? buildOffRoad(roads.value, 'road', month, day).filter((r) => (r.miles ?? 0) >= 2) : []),
-  ];
+  ].sort((x, y) => (y.miles ?? 0) - (x.miles ?? 0));
   const first = (roads.status === 'fulfilled' && roads.value[0]) || (trails.status === 'fulfilled' && trails.value[0]) || null;
   const ok = roads.status === 'fulfilled' || trails.status === 'fulfilled';
   return { ok, error: ok ? undefined : note, routes, note, sample: first ? JSON.stringify(first.attrs).slice(0, 500) : '' };

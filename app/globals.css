@@ -165,3 +165,11 @@ img.panel-media { max-height: 240px; object-fit: contain; }
 .signup-done { color: #0a4650; font-weight: 600; }
 .signup-error { color: #8a1c2c; font-weight: 600; }
 .button-full { width: 100%; border: 0; font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; }
+
+/* Small place maps (trails, off-road routes, the lake) */
+.mk-place .pin { min-width: 30px; height: 30px; padding: 0 8px; border-radius: 15px; border: 2.5px solid #fff; color: #fff; font-size: 12px; font-weight: 800; background: var(--navy); cursor: default; }
+.mk-place-good .pin { background: #0a6b78; }
+.mk-place-poor .pin { background: #5a1220; }
+.btn { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 24px; background: var(--accent); color: #fff; font-weight: 600; font-size: 16px; text-decoration: none; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fact { padding: 6px 12px; border-radius: 16px; background: #fff; border: 1px solid #c5cfd9; font-size: 14px; font-weight: 500; }

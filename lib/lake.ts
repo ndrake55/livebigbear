@@ -54,3 +54,12 @@ export function waterNote(tempF: number): string {
   if (tempF < 70) return 'Cool water. Fine for boating and paddling; chilly for a long swim.';
   return 'Comfortable water for swimming and paddling.';
 }
+
+/**
+ * The two public launch ramps. Addresses are from the California boating facilities list and
+ * the water district; the map positions are placed by hand and are approximate.
+ */
+export const RAMPS = [
+  { key: 'East ramp', name: 'East public launch ramp', full: 'Carol Morrison Public Launch Ramp', address: '41911 North Shore Dr, Big Bear Lake, CA', where: 'Just west of Stanfield Cutoff', lat: 34.2612, lon: -116.8925 },
+  { key: 'West ramp', name: 'West public launch ramp', full: 'Duane Boyer Public Launch Ramp', address: '38925 North Shore Dr, Fawnskin, CA', where: 'About 1.5 miles west of Fawnskin', lat: 34.2585, lon: -116.9625 },
+];
