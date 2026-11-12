@@ -6,13 +6,19 @@ import { hasDb } from '@/lib/db';
 import { COMMUNITIES } from '@/lib/communities';
 import { getWeather, isFresh } from '@/lib/weather';
 import { getCameras } from '@/lib/cameras';
+import { FIRE_RADIUS_MILES, getFires } from '@/lib/fires';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Data check', robots: { index: false } };
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const [snap, weather, cams] = await Promise.all([getSnapshot(), getWeather(COMMUNITIES[0]), getCameras()]);
+  const [snap, weather, cams, fireData] = await Promise.all([
+    getSnapshot(),
+    getWeather(COMMUNITIES[0]),
+    getCameras(),
+    getFires(),
+  ]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   const obsFresh = isFresh(weather.observation, new Date());
   const valley = snap.points.filter((p) => ['18', '330', '38'].includes(p.route));
@@ -75,6 +81,17 @@ export default async function StatusPage() {
           <span className={`tag ${cams.ok && caltransCams.length > 0 ? 'tag-open' : 'tag-closed'}`}>
             {cams.ok ? (caltransCams.length > 0 ? 'Working' : 'No cameras found') : 'Failing'}
           </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">CAL FIRE incident feed</span>
+            <span className="row-sub">
+              {fireData.ok
+                ? `${fireData.fires.length} active within ${FIRE_RADIUS_MILES} miles${fireData.fires.length ? `: ${fireData.fires.map((f) => f.name).join(', ')}` : ''}`
+                : fireData.error}
+            </span>
+          </span>
+          <span className={`tag ${fireData.ok ? 'tag-open' : 'tag-closed'}`}>{fireData.ok ? 'Working' : 'Failing'}</span>
         </div>
         <div className="row">
           <span className="row-text">
