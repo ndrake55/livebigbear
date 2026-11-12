@@ -213,7 +213,7 @@ describe('forest trails', () => {
     expect(startOf([], { lat: 34, lon: -116 })).toBeNull();
     expect(directionsUrl({ lat: 34.25, lon: -116.95 })).toBe('https://www.google.com/maps/dir/?api=1&destination=34.25,-116.95');
     const trails = buildTrails(parseFeatures({ features: [seg({ trail_no: '1E01', trail_name: 'PINE KNOT', gis_miles: 2 }, paths)] }));
-    expect(trails[0]).toMatchObject({ slug: 'pine-knot-1e01', start: { lon: -116.95, lat: 34.25 } });
+    expect(trails[0]).toMatchObject({ slug: 'pine-knot-1e01', start: { kind: 'checked', lat: 34.236115 } });
   });
   it('reads seasons, including ones that wrap the new year', () => {
     expect(seasonOpen('05/01-11/30', 11, 11)).toBe(true);
@@ -237,5 +237,32 @@ describe('forest trails', () => {
     expect(summer).toHaveLength(1);
     expect(summer[0]).toMatchObject({ number: '3N69', name: 'Gold Mountain', miles: 4, vehicles: ['High-clearance 4x4', 'Dirt bikes'], seasonLabel: 'May 1 to Nov 30', openNow: true });
     expect(buildOffRoad(features, 'road', 1, 15)[0].openNow).toBe(false);
+  });
+});
+
+import { numberIn, parseListed, startFor } from './trailheads';
+
+describe('trailheads', () => {
+  it('reads trail and road numbers out of site names', () => {
+    expect(numberIn('Pine Knot Reroute Trail 1E01.1')).toBe('1E01.1');
+    expect(numberIn('Rattlesnake Canyon OHV Road 2N70Y')).toBe('2N70Y');
+    expect(numberIn('Serrano Family Campground')).toBe('');
+  });
+  it('prefers a checked trailhead, then the site list, then a guess', () => {
+    const listed = new Map(
+      parseListed({
+        features: [
+          { attributes: { RECAREANAME: 'Fern Trail 1E31', LATITUDE: 34.22, LONGITUDE: -116.9 } },
+          { attributes: { RECAREANAME: 'Coxey OHV Road 3N14' }, geometry: { x: -117.05, y: 34.3 } },
+          { attributes: { RECAREANAME: 'Aspen Glen Picnic Area', LATITUDE: 34.2, LONGITUDE: -116.9 } },
+        ],
+      }).map((l) => [l.number, l]),
+    );
+    expect(listed.size).toBe(2);
+    expect(startFor('1e22', listed, null)).toMatchObject({ kind: 'checked', lat: 34.264863 });
+    expect(startFor('1E31', listed, { lat: 1, lon: 2 })).toMatchObject({ kind: 'listed', lat: 34.22, lon: -116.9 });
+    expect(startFor('3N14', listed, null)).toMatchObject({ kind: 'listed', lon: -117.05 });
+    expect(startFor('9X99', listed, { lat: 1, lon: 2 })).toEqual({ lat: 1, lon: 2, kind: 'guess', where: '' });
+    expect(startFor('9X99', listed, null)).toBeNull();
   });
 });

@@ -44,7 +44,10 @@ export default async function TrailPage({ params }: Props) {
   }
   const outlook = buildToday([], weather, new Date()).lines.find((l) => l.activity === 'Trails');
   const uses = trail.uses.filter((u) => u !== 'moto').map((u) => USE_LABEL[u]);
-  const pins = trail.start ? [{ ...trail.start, label: 'Start of the trail nearest Big Bear Lake', text: 'Start' }] : [];
+  const start = trail.start;
+  const pins = start
+    ? [{ lat: start.lat, lon: start.lon, label: start.kind === 'guess' ? 'Nearest end of the trail' : 'Trailhead', text: 'Start' }]
+    : [];
 
   return (
     <div className="shell">
@@ -68,10 +71,20 @@ export default async function TrailPage({ params }: Props) {
 
       {trail.paths.length > 0 && <PlaceMap lines={trail.paths} pins={pins} label={`Map of ${trail.name}`} />}
 
-      {trail.start && (
-        <a className="btn" href={directionsUrl(trail.start)} target="_blank" rel="noopener noreferrer">
-          Directions to the start
-        </a>
+      {start?.notice && <div className="notice">{start.notice}</div>}
+
+      {start && (
+        <>
+          <a className="btn" href={directionsUrl(start)} target="_blank" rel="noopener noreferrer">
+            {start.kind === 'guess' ? 'Directions to the nearest end' : 'Directions to the trailhead'}
+          </a>
+          <p className="note" style={{ marginTop: -8 }}>
+            {start.kind === 'checked' && `Trailhead: ${start.where}.`}
+            {start.kind === 'listed' && 'Starting point from the Forest Service recreation site list.'}
+            {start.kind === 'guess' &&
+              'No trailhead is on file for this one yet, so directions go to the end nearest Big Bear Lake village. Check the map before you set off.'}
+          </p>
+        </>
       )}
 
       {outlook && (
@@ -87,9 +100,7 @@ export default async function TrailPage({ params }: Props) {
       )}
 
       <p className="note">
-        Directions open in your map app and go to the end of the trail nearest Big Bear Lake village. That is
-        usually, but not always, where the parking is, so check the map before you set off. The length covers the
-        whole trail. This page does not show snow, downed trees or closures. Trail data: US Forest Service.
+        Directions open in your map app. The length covers the whole trail. This page does not show snow, downed trees or closures. Trail data: US Forest Service.
       </p>
     </div>
   );

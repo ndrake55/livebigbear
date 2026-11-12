@@ -1,5 +1,6 @@
 import { type Feature, number, queryBox, slugify, startOf, text, tidyTitle } from './arcgis';
 import { milesBetween } from './fires';
+import { getListed, type Listed, type Start, startFor } from './trailheads';
 
 export const TRAILS_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/0';
 
@@ -16,8 +17,8 @@ export interface Trail {
   number: string;
   /** The trail as lines of [lon, lat], for the map. */
   paths: number[][][];
-  /** The end of the trail nearest Big Bear Lake village, for directions. */
-  start: { lat: number; lon: number } | null;
+  /** Where directions go: a known trailhead when there is one, otherwise the nearest end of the trail. */
+  start: Start | null;
   miles: number | null;
   uses: TrailUse[];
   /** Straight-line miles from Big Bear Lake village to the nearest part of the trail. */
@@ -45,7 +46,7 @@ function allows(a: Record<string, unknown>, key: string): boolean {
 }
 
 /** Joins the feed's segments into whole trails, nearest to Big Bear Lake first. */
-export function buildTrails(features: Feature[]): Trail[] {
+export function buildTrails(features: Feature[], listed: Map<string, Listed> = new Map()): Trail[] {
   const byTrail = new Map<string, Trail & { milesSum: number }>();
   for (const f of features) {
     const a = f.attrs;
@@ -81,7 +82,7 @@ export function buildTrails(features: Feature[]): Trail[] {
   return [...byTrail.values()]
     .map(({ milesSum, ...t }) => ({
       ...t,
-      start: startOf(t.paths, LAKE),
+      start: startFor(t.number, listed, startOf(t.paths, LAKE)),
       miles: milesSum > 0 ? Math.round(milesSum * 10) / 10 : null,
       fromLake: t.fromLake === null ? null : Math.round(t.fromLake * 10) / 10,
       uses: order.filter((u) => t.uses.includes(u)),
@@ -100,9 +101,9 @@ export interface TrailData {
 
 export async function getTrails(): Promise<TrailData> {
   try {
-    const features = await queryBox(TRAILS_URL, { fields: FIELDS, geometry: true });
+    const [features, listed] = await Promise.all([queryBox(TRAILS_URL, { fields: FIELDS, geometry: true }), getListed()]);
     const sample = features[0] ? JSON.stringify(features[0].attrs).slice(0, 500) : '';
-    return { ok: true, trails: buildTrails(features), segments: features.length, sample };
+    return { ok: true, trails: buildTrails(features, listed.byNumber), segments: features.length, sample };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'error', trails: [], segments: 0, sample: '' };
   }

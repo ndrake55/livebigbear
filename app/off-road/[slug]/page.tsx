@@ -41,7 +41,10 @@ export default async function OffRoadRoutePage({ params }: Props) {
       </div>
     );
   }
-  const pins = route.start ? [{ ...route.start, label: 'End of the route nearest Big Bear Lake', text: 'Start' }] : [];
+  const start = route.start;
+  const pins = start
+    ? [{ lat: start.lat, lon: start.lon, label: start.kind === 'guess' ? 'Nearest end of the route' : 'Trailhead', text: 'Start' }]
+    : [];
 
   return (
     <div className="shell">
@@ -78,14 +81,24 @@ export default async function OffRoadRoutePage({ params }: Props) {
 
       {route.paths.length > 0 && <PlaceMap lines={route.paths} pins={pins} label={`Map of ${titleOf(route)}`} />}
 
-      {route.start && (
-        <a className="btn" href={directionsUrl(route.start)} target="_blank" rel="noopener noreferrer">
-          Directions to the start
-        </a>
+      {start?.notice && <div className="notice">{start.notice}</div>}
+
+      {start && (
+        <>
+          <a className="btn" href={directionsUrl(start)} target="_blank" rel="noopener noreferrer">
+            {start.kind === 'guess' ? 'Directions to the nearest end' : 'Directions to the trailhead'}
+          </a>
+          <p className="note" style={{ marginTop: -8 }}>
+            {start.kind === 'checked' && `Trailhead: ${start.where}.`}
+            {start.kind === 'listed' && 'Starting point from the Forest Service recreation site list.'}
+            {start.kind === 'guess' &&
+              'No trailhead is on file for this one yet, so directions go to the end nearest Big Bear Lake village. Check the map before you set off.'}
+          </p>
+        </>
       )}
 
       <p className="note">
-        Directions open in your map app and go to the end of the route nearest Big Bear Lake village. A route that
+        Directions open in your map app. A route that
         is in season can still be closed by snow, mud, fire or a forest order, so check with the Big Bear Discovery
         Center before you go. Route data: US Forest Service motor vehicle use map.
       </p>
