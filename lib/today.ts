@@ -1,3 +1,4 @@
+import type { Air } from './air';
 import type { RouteSummary } from './caltrans';
 import { isChains } from './status';
 import { sunTimes, utcOffsetHours } from './sun';
@@ -62,7 +63,7 @@ function driveLine(routes: RouteSummary[]): TodayLine {
  * A plain summary of conditions for each activity. It describes the weather; it is not advice
  * on whether a particular trip is safe.
  */
-export function buildToday(routes: RouteSummary[], weather: Weather, now: Date): Today {
+export function buildToday(routes: RouteSummary[], weather: Weather, now: Date, air?: Air): Today {
   const lines: TodayLine[] = [driveLine(routes)];
 
   if (weather.ok) {
@@ -107,5 +108,18 @@ export function buildToday(routes: RouteSummary[], weather: Weather, now: Date):
     }
   }
 
+  const reading = air?.now ?? null;
+  if (reading) {
+    const rating: Rating = reading.level <= 1 ? 'good' : reading.level === 2 ? 'fair' : 'poor';
+    const bits = [reading.aqi !== null ? `AQI ${reading.aqi}` : '', reading.pollutant].filter(Boolean).join(', ');
+    const next = air?.tomorrow ? ` Tomorrow: ${air.tomorrow.category}.` : '';
+    lines.push({ activity: 'Air quality', rating, label: shortCategory(reading.category), detail: `${bits || reading.category}.${next}` });
+  }
+
   return { lines, daylight: daylightLine(now) };
+}
+
+/** "Unhealthy for Sensitive Groups" is too long for a tag. */
+function shortCategory(category: string): string {
+  return /sensitive/i.test(category) ? 'Sensitive' : category;
 }

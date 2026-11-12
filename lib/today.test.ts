@@ -118,3 +118,52 @@ describe('lake page reader', () => {
     expect(readLakePage('<p>nothing here</p>')).toEqual({ temp: '', down: '', ramps: '' });
   });
 });
+
+import { parseForecast, parseObservations } from './air';
+import { parseCampgrounds, tidyName } from './camping';
+
+describe('air quality', () => {
+  it('reports the worst pollutant as the reading', () => {
+    const obs = [
+      { ReportingArea: 'Big Bear', ParameterName: 'O3', AQI: 38, Category: { Number: 1, Name: 'Good' } },
+      { ReportingArea: 'Big Bear', ParameterName: 'PM2.5', AQI: 61, Category: { Number: 2, Name: 'Moderate' } },
+    ];
+    expect(parseObservations(obs)).toEqual({ aqi: 61, category: 'Moderate', level: 2, pollutant: 'PM2.5', area: 'Big Bear' });
+    expect(parseObservations({ Data: obs })?.aqi).toBe(61); // wrapped form
+    expect(parseObservations([{ parameter_name: 'PM2.5', aqi: 155, category_name: 'Unhealthy' }])).toMatchObject({ level: 4, category: 'Unhealthy' });
+    expect(parseObservations([])).toBeNull();
+    expect(parseObservations('nope')).toBeNull();
+  });
+  it('finds tomorrow in the forecast, including category-only forecasts', () => {
+    const fc = [
+      { DateForecast: '2026-11-11', ParameterName: 'PM2.5', AQI: 40, Category: { Number: 1, Name: 'Good' } },
+      { DateForecast: '2026-11-12', ParameterName: 'O3', AQI: -1, Category: { Number: 2, Name: 'Moderate' } },
+      { DateForecast: '2026-11-12', ParameterName: 'PM2.5', AQI: 45, Category: { Number: 1, Name: 'Good' } },
+      { DateForecast: '2026-11-13', ParameterName: 'PM2.5', AQI: 160, Category: { Number: 4, Name: 'Unhealthy' } },
+    ];
+    expect(parseForecast(fc, '2026-11-11')).toEqual({ aqi: null, category: 'Moderate', level: 2, pollutant: 'O3', area: '' });
+    expect(parseForecast(fc, '2026-11-13')).toBeNull();
+  });
+});
+
+describe('campgrounds', () => {
+  it('keeps nearby campgrounds, nearest first, with tidy names', () => {
+    expect(tidyName('HANNA FLAT')).toBe('Hanna Flat');
+    expect(tidyName('camp of the pines')).toBe('Camp of the Pines');
+    const list = parseCampgrounds({
+      RECDATA: [
+        { FacilityID: '232295', FacilityName: 'HEART BAR CAMPGROUND', FacilityTypeDescription: 'Campground', FacilityLatitude: 34.158, FacilityLongitude: -116.786, Reservable: true, Enabled: true },
+        { FacilityID: '232286', FacilityName: 'PINEKNOT', FacilityTypeDescription: 'Campground', FacilityLatitude: 34.234, FacilityLongitude: -116.883, Reservable: true, Enabled: true },
+        { FacilityID: '1', FacilityName: 'FAR AWAY', FacilityTypeDescription: 'Campground', FacilityLatitude: 36, FacilityLongitude: -118, Reservable: true },
+        { FacilityID: '2', FacilityName: 'VISITOR CENTER', FacilityTypeDescription: 'Facility', FacilityLatitude: 34.26, FacilityLongitude: -116.9 },
+        { FacilityID: '3', FacilityName: 'NO PLACE', FacilityTypeDescription: 'Campground', FacilityLatitude: 0, FacilityLongitude: 0 },
+        { FacilityID: '4', FacilityName: 'SWITCHED OFF', FacilityTypeDescription: 'Campground', FacilityLatitude: 34.25, FacilityLongitude: -116.9, Enabled: false },
+        null,
+      ],
+    });
+    expect(list.map((c) => c.name)).toEqual(['Pineknot', 'Heart Bar Campground']);
+    expect(list[0]).toMatchObject({ id: '232286', reservable: true, url: 'https://www.recreation.gov/camping/campgrounds/232286' });
+    expect(list[0].miles).toBeLessThan(3);
+    expect(parseCampgrounds(null)).toEqual([]);
+  });
+});
