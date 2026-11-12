@@ -1,8 +1,11 @@
 import { type Feature, number, queryBox, slugify, startOf, text, tidyTitle } from './arcgis';
 import { milesBetween } from './fires';
+import { knownUses } from './trail-uses';
 import { getListed, type Listed, type Start, startFor } from './trailheads';
 
 export const TRAILS_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/0';
+
+const MVUM_TRAILS = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_MVUM_02/MapServer/2';
 
 const LAKE = { lat: 34.2439, lon: -116.9114 };
 
@@ -21,6 +24,12 @@ export interface Trail {
   start: Start | null;
   miles: number | null;
   uses: TrailUse[];
+  /** True when the uses were researched or come from the data; false when only "open to hikers" is assumed. */
+  usesChecked: boolean;
+  /** Something to know about who may use the trail. */
+  useNote: string;
+  /** On the Forest Service motor vehicle map, so it belongs with the off-road routes. */
+  motorized: boolean;
   /** Straight-line miles from Big Bear Lake village to the nearest part of the trail. */
   fromLake: number | null;
   surface: string;
@@ -62,7 +71,11 @@ export function usesFromAllowed(raw: unknown): TrailUse[] {
 }
 
 /** Joins the feed's segments into whole trails, nearest to Big Bear Lake first. */
-export function buildTrails(features: Feature[], listed: Map<string, Listed> = new Map()): Trail[] {
+export function buildTrails(
+  features: Feature[],
+  listed: Map<string, Listed> = new Map(),
+  motorized: Set<string> = new Set(),
+): Trail[] {
   const byTrail = new Map<string, Trail & { milesSum: number }>();
   for (const f of features) {
     const a = f.attrs;
@@ -74,7 +87,7 @@ export function buildTrails(features: Feature[], listed: Map<string, Listed> = n
     const key = `${no}|${rawName.toUpperCase()}`;
     let t = byTrail.get(key);
     if (!t) {
-      t = { id: key, slug: slugify(`${rawName || 'trail'}-${no}`), paths: [], start: null, name: tidyTitle(rawName || `Trail ${no}`), number: no, miles: null, milesSum: 0, uses: [], fromLake: null, surface: '' };
+      t = { id: key, slug: slugify(`${rawName || 'trail'}-${no}`), paths: [], start: null, name: tidyTitle(rawName || `Trail ${no}`), number: no, miles: null, milesSum: 0, uses: [], usesChecked: false, useNote: '', motorized: false, fromLake: null, surface: '' };
       byTrail.set(key, t);
     }
     t.milesSum += number(a.gis_miles) ?? number(a.segment_length) ?? 0;
@@ -97,6 +110,14 @@ export function buildTrails(features: Feature[], listed: Map<string, Listed> = n
   }
   const order: TrailUse[] = ['hike', 'bike', 'horse', 'moto'];
   return [...byTrail.values()]
+    .map(({ milesSum, ...t }) => {
+      // Researched uses come first, then anything the data itself says. Failing both, every
+      // Forest Service trail is at least open to people on foot.
+      const known = knownUses(t.number);
+      const isMotor = motorized.has(t.number.toUpperCase()) || (t.uses.length > 0 && t.uses.every((u) => u === 'moto'));
+      const uses: TrailUse[] = known ? known.uses : t.uses.length > 0 ? t.uses : isMotor ? [] : ['hike'];
+      return { ...t, milesSum, uses, usesChecked: Boolean(known) || t.uses.length > 0, useNote: known?.note ?? '', motorized: isMotor && !known };
+    })
     .map(({ milesSum, ...t }) => ({
       ...t,
       start: startFor(t.number, listed, startOf(t.paths, LAKE)),
@@ -120,7 +141,13 @@ export interface TrailData {
 
 export async function getTrails(): Promise<TrailData> {
   try {
-    const [features, listed] = await Promise.all([queryBox(TRAILS_URL, { fields: FIELDS, geometry: true }), getListed()]);
+    const [features, listed, motor] = await Promise.all([
+      queryBox(TRAILS_URL, { fields: FIELDS, geometry: true }),
+      getListed(),
+      // Trails on the motor vehicle map are off-road routes, not walking trails.
+      queryBox(MVUM_TRAILS, { fields: 'id' }).catch(() => []),
+    ]);
+    const motorized = new Set(motor.map((f) => text(f.attrs.id).toUpperCase()).filter(Boolean));
     const sample = features[0] ? JSON.stringify(features[0].attrs).slice(0, 500) : '';
     const seen = new Map<string, number>();
     for (const f of features) {
@@ -128,7 +155,7 @@ export async function getTrails(): Promise<TrailData> {
       seen.set(k, (seen.get(k) ?? 0) + 1);
     }
     const allowedSeen = [...seen].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, n]) => `${k} (${n})`).join('; ');
-    return { ok: true, trails: buildTrails(features, listed.byNumber), segments: features.length, sample, allowedSeen };
+    return { ok: true, trails: buildTrails(features, listed.byNumber, motorized), segments: features.length, sample, allowedSeen };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'error', trails: [], segments: 0, sample: '', allowedSeen: '' };
   }

@@ -191,15 +191,15 @@ describe('forest trails', () => {
   it('joins segments into trails, nearest first, with who may use them', () => {
     const features = parseFeatures({
       features: [
-        seg({ TRAIL_NO: '1E01', TRAIL_NAME: 'COUGAR CREST', TRAIL_TYPE: 'TERRA', GIS_MILES: 1.2, HIKER_PEDESTRIAN_MANAGED: 'N/A', ALLOWED_TERRA_USE: '13' }, [[[-116.95, 34.26]]]),
-        seg({ trail_no: '1E01', trail_name: 'COUGAR CREST', trail_type: 'TERRA', gis_miles: 1.1, hiker_pedestrian_managed: '01/01-12/31' }, [[[-116.96, 34.28]]]),
-        seg({ trail_no: '2000', trail_name: 'PCT SECTION 16', trail_type: 'TERRA', gis_miles: 9, hiker_pedestrian_managed: '01/01-12/31', pack_saddle_managed: '01/01-12/31', bicycle_restricted: '01/01-12/31', bicycle_accpt_disc: '01/01-12/31' }, [[[-116.7, 34.3]]]),
+        seg({ TRAIL_NO: '9E01', TRAIL_NAME: 'COUGAR CREST', TRAIL_TYPE: 'TERRA', GIS_MILES: 1.2, HIKER_PEDESTRIAN_MANAGED: 'N/A', ALLOWED_TERRA_USE: '13' }, [[[-116.95, 34.26]]]),
+        seg({ trail_no: '9E01', trail_name: 'COUGAR CREST', trail_type: 'TERRA', gis_miles: 1.1, hiker_pedestrian_managed: '01/01-12/31' }, [[[-116.96, 34.28]]]),
+        seg({ trail_no: '9E02', trail_name: 'PCT SECTION 16', trail_type: 'TERRA', gis_miles: 9, hiker_pedestrian_managed: '01/01-12/31', pack_saddle_managed: '01/01-12/31', bicycle_restricted: '01/01-12/31', bicycle_accpt_disc: '01/01-12/31' }, [[[-116.7, 34.3]]]),
         seg({ trail_no: 'S1', trail_name: 'SNOW ROUTE', trail_type: 'SNOW', gis_miles: 3 }),
       ],
     });
     const trails = buildTrails(features);
     expect(trails.map((t) => t.name)).toEqual(['Cougar Crest', 'PCT Section 16']);
-    expect(trails[0]).toMatchObject({ miles: 2.3, uses: ['hike', 'bike'], number: '1E01' });
+    expect(trails[0]).toMatchObject({ miles: 2.3, uses: ['hike', 'bike'], number: '9E01', usesChecked: true });
     expect(trails[0].fromLake).toBeLessThan(3);
     expect(trails[1].uses).toEqual(['hike', 'horse']);
     expect(usesFromAllowed('1234')).toEqual(['hike', 'horse', 'bike', 'moto']);
@@ -277,5 +277,34 @@ describe('air readings as AirNow sends them now', () => {
       { dateObserved: '2026-11-11', hourObserved: '17:00', reportingAreaName: 'Big Bear Lake', parameterName: 'O3', nowcastAQI: 31, aqiCategoryName: 'Good' },
     ];
     expect(parseObservations(rows)).toEqual({ aqi: 31, category: 'Good', level: 1, pollutant: 'O3', area: 'Big Bear Lake' });
+  });
+});
+
+import { knownUses } from './trail-uses';
+
+describe('researched trail uses', () => {
+  const seg = (attributes: Record<string, unknown>) => ({ attributes });
+  it('uses the researched table, the Pacific Crest Trail rule, then a hikers-only default', () => {
+    expect(knownUses('1w03')).toMatchObject({ uses: ['hike'], note: 'No bikes on this trail.' });
+    expect(knownUses('2000.16')?.uses).toEqual(['hike', 'horse']);
+    expect(knownUses('2E03.5B')?.uses).toEqual(['hike', 'bike', 'horse']);
+    expect(knownUses('9X99')).toBeNull();
+    const trails = buildTrails(
+      parseFeatures({
+        features: [
+          seg({ trail_no: '1E12', trail_name: 'SKYLINE', gis_miles: 8, hiker_pedestrian_managed: 'N/A' }),
+          seg({ trail_no: '2000.16', trail_name: 'PCT SECTION 16', gis_miles: 2.5 }),
+          seg({ trail_no: '1E99', trail_name: 'UNRESEARCHED', gis_miles: 1 }),
+          seg({ trail_no: '2W01', trail_name: 'DEVILS HOLE', gis_miles: 3 }),
+        ],
+      }),
+      new Map(),
+      new Set(['2W01']),
+    );
+    const by = (n: string) => trails.find((t) => t.number === n)!;
+    expect(by('1E12')).toMatchObject({ uses: ['hike', 'bike', 'horse'], usesChecked: true, motorized: false });
+    expect(by('2000.16')).toMatchObject({ uses: ['hike', 'horse'], usesChecked: true });
+    expect(by('1E99')).toMatchObject({ uses: ['hike'], usesChecked: false, useNote: '' });
+    expect(by('2W01')).toMatchObject({ uses: [], motorized: true });
   });
 });
