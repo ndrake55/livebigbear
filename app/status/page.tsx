@@ -154,7 +154,7 @@ export default async function StatusPage() {
         <div className="row">
           <span className="row-text">
             <span className="row-name">Trails (Forest Service)</span>
-            <span className="row-sub">{trails.ok ? `${trails.trails.length} trails from ${trails.segments} segments. With a use listed: ${trails.trails.filter((t) => t.uses.length > 0).length}. First: ${trails.trails.slice(0, 5).map((t) => `${t.name} (${t.miles ?? '?'} mi, ${t.uses.join('/') || 'no use listed'})`).join('; ')}. Allowed-use values: ${trails.allowedSeen}. Raw record: ${trails.sample.slice(0, 160)}` : trails.error}</span>
+            <span className="row-sub">{trails.ok ? `${trails.trails.length} trails from ${trails.segments} segments. Uses checked: ${trails.trails.filter((t) => t.usesChecked).length}; bikes: ${trails.trails.filter((t) => t.uses.includes('bike')).length}; horses: ${trails.trails.filter((t) => t.uses.includes('horse')).length}; moved to off-road: ${trails.trails.filter((t) => t.motorized).length}. First: ${trails.trails.slice(0, 5).map((t) => `${t.name} (${t.miles ?? '?'} mi, ${t.uses.join('/') || 'no use listed'})`).join('; ')}. Allowed-use values: ${trails.allowedSeen}. Raw record: ${trails.sample.slice(0, 160)}` : trails.error}</span>
           </span>
           <span className={`tag ${trails.ok ? 'tag-open' : 'tag-closed'}`}>{trails.ok ? 'Working' : 'Problem'}</span>
         </div>

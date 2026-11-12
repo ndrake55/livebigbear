@@ -31,7 +31,7 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
   const [data, weather] = await Promise.all([getTrails(), getWeather(COMMUNITIES[0])]);
   const outlook = buildToday([], weather, new Date()).lines.find((l) => l.activity === 'Trails');
   // Motorcycle-only routes belong on the off-road page.
-  const walkable = data.trails.filter((t) => t.uses.length === 0 || t.uses.some((u) => u !== 'moto'));
+  const walkable = data.trails.filter((t) => !t.motorized && t.uses.some((u) => u !== 'moto'));
   const matching = want ? walkable.filter((t) => t.uses.includes(want)) : walkable;
   const near = matching.filter((t) => t.fromLake !== null && t.fromLake <= NEAR_MILES);
   const shown = all ? matching : near;
@@ -125,7 +125,8 @@ export default async function TrailsPage({ searchParams }: { searchParams: Promi
       )}
 
       <p className="note">
-        Lengths cover the whole trail, which can run beyond the valley. Distance is a straight line from Big Bear
+Hiking, biking and horse labels were checked by hand for the trails nearest the lake. A trail marked
+        only for hiking may also allow bikes or horses, so read the signs at the trailhead. Lengths cover the whole trail, which can run beyond the valley. Distance is a straight line from Big Bear
         Lake village to the nearest part of the trail. This list does not show snow, downed trees or closures, so
         check with the Big Bear Discovery Center before a long outing. Trail data: US Forest Service.
       </p>

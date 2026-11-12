@@ -69,6 +69,12 @@ export default async function TrailPage({ params }: Props) {
         ))}
       </div>
 
+      {(trail.useNote || !trail.usesChecked) && (
+        <p className="note" style={{ marginTop: -8 }}>
+          {trail.useNote || 'Open to hikers. Bike and horse access has not been checked for this trail, so read the signs at the trailhead.'}
+        </p>
+      )}
+
       {trail.paths.length > 0 && <PlaceMap lines={trail.paths} pins={pins} label={`Map of ${trail.name}`} />}
 
       {start?.notice && <div className="notice">{start.notice}</div>}
