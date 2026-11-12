@@ -106,3 +106,15 @@ describe('fires', () => {
     expect(parseFires('nope')).toEqual([]);
   });
 });
+
+import { readLakePage } from './probes';
+
+describe('lake page reader', () => {
+  it('pulls the figures out of the page text', () => {
+    const html =
+      '<div><h3>Current Conditions</h3><p>Current Lake Temperature: 52.2&nbsp;°F</p><p>Lake Down from Full: 9.48</p></div>' +
+      '<div><p>East Launch Ramp: <b>Open</b> daily 7:00 AM to 3:00 PM</p><p>West Launch Ramp: Closed</p></div>';
+    expect(readLakePage(html)).toEqual({ temp: '52.2', down: '9.48', ramps: 'East open, West closed' });
+    expect(readLakePage('<p>nothing here</p>')).toEqual({ temp: '', down: '', ramps: '' });
+  });
+});
