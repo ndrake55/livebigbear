@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
 import { communityBySlug } from '@/lib/communities';
+import { SITE } from '@/lib/site';
 import { HomeView } from './home-view';
 
 export const revalidate = 120;
@@ -11,7 +12,7 @@ const site = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
   name: 'Live Big Bear',
-  url: 'https://www.livebigbear.com/',
+  url: `${SITE}/`,
   description: 'Live road conditions, chain control, weather and outdoor conditions for the Big Bear Valley.',
 };
 

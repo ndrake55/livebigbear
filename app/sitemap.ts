@@ -6,7 +6,7 @@ import { getTrails } from '@/lib/trails';
 
 export const revalidate = 86400;
 
-const BASE = 'https://www.livebigbear.com';
+import { SITE as BASE } from '@/lib/site';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // If the Forest Service is not answering, the sitemap simply lists fewer pages.

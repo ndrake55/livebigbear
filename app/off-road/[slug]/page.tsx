@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { directionsUrl } from '@/lib/arcgis';
 import { getOffRoad } from '@/lib/offroad';
+import { hasDb } from '@/lib/db';
+import { ratingFor } from '@/lib/ratings';
+import { crumbs, jsonLd, placeLd } from '@/lib/site';
 import { PlaceMap } from '../../place-map';
 import { RateStars } from '../../rate-stars';
 
@@ -42,6 +45,14 @@ export default async function OffRoadRoutePage({ params }: Props) {
       </div>
     );
   }
+  const rating = hasDb() ? await ratingFor(`offroad:${route.slug}`).catch(() => null) : null;
+  const about = [
+    `${titleOf(route)} is a ${route.miles !== null ? `${route.miles}-mile ` : ''}${route.kind === 'road' ? 'forest road' : 'off-road trail'} near Big Bear Lake, California`,
+    route.vehicles.length ? `Open to ${route.vehicles.join(', ').toLowerCase()}` : '',
+    route.seasonLabel ? `Season: ${route.seasonLabel}` : '',
+  ]
+    .filter(Boolean)
+    .join('. ');
   const start = route.start;
   const pins = start
     ? [{ lat: start.lat, lon: start.lon, label: start.kind === 'guess' ? 'Nearest end of the route' : 'Trailhead', text: 'Start' }]
@@ -49,6 +60,11 @@ export default async function OffRoadRoutePage({ params }: Props) {
 
   return (
     <div className="shell">
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(placeLd({ name: titleOf(route), description: `${about}.`, path: `/off-road/${route.slug}`, at: route.start, rating }))} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLd(crumbs([{ name: 'Explore', path: '/explore' }, { name: 'Off-road routes', path: '/off-road' }, { name: titleOf(route), path: `/off-road/${route.slug}` }]))}
+      />
       <Link href="/off-road" className="back">
         <span aria-hidden="true">‹</span> Off-road routes
       </Link>
@@ -56,6 +72,8 @@ export default async function OffRoadRoutePage({ params }: Props) {
         <h1>{titleOf(route)}</h1>
         <p>{route.kind === 'road' ? 'Forest road' : 'Forest Service off-road trail'}</p>
       </div>
+
+      <p className="lede">{about}.</p>
 
       <div className="facts">
         {route.miles !== null && <span className="fact">{route.miles} mi long</span>}

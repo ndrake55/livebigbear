@@ -184,3 +184,4 @@ img.panel-media { max-height: 240px; object-fit: contain; }
 .star:disabled { opacity: 0.6; cursor: default; }
 .rank { flex: none; width: 28px; font-size: 14px; font-weight: 700; color: var(--muted); }
 .chips-label { font-size: 13px; font-weight: 600; color: var(--muted); align-self: center; flex: none; }
+.lede { font-size: 15px; line-height: 1.5; margin: 0; }
