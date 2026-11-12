@@ -7,6 +7,7 @@ import { buildToday } from '@/lib/today';
 import { getTrails, USE_LABEL } from '@/lib/trails';
 import { getWeather } from '@/lib/weather';
 import { PlaceMap } from '../../place-map';
+import { RateStars } from '../../rate-stars';
 
 export const revalidate = 1800;
 
@@ -104,6 +105,8 @@ export default async function TrailPage({ params }: Props) {
           </div>
         </div>
       )}
+
+      <RateStars item={`trail:${trail.slug}`} what="trail" />
 
       <p className="note">
         Directions open in your map app. The length covers the whole trail. This page does not show snow, downed trees or closures. Trail data: US Forest Service.

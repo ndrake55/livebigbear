@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { directionsUrl } from '@/lib/arcgis';
 import { getOffRoad } from '@/lib/offroad';
 import { PlaceMap } from '../../place-map';
+import { RateStars } from '../../rate-stars';
 
 export const revalidate = 1800;
 
@@ -96,6 +97,8 @@ export default async function OffRoadRoutePage({ params }: Props) {
           </p>
         </>
       )}
+
+      <RateStars item={`offroad:${route.slug}`} what="route" />
 
       <p className="note">
         Directions open in your map app. A route that
