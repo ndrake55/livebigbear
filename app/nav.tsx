@@ -30,13 +30,25 @@ const TABS = [
   },
 ];
 
-/** Bottom tab bar, like a phone app. */
-export function Nav() {
+const ALERTS_TAB = {
+  href: '/alerts',
+  label: 'Alerts',
+  icon: (
+    <>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </>
+  ),
+};
+
+/** Bottom tab bar, like a phone app. The Alerts tab appears once email is switched on. */
+export function Nav({ alerts = false }: { alerts?: boolean }) {
   const path = usePathname();
+  const tabs = alerts ? [...TABS, ALERTS_TAB] : TABS;
   const active = (href: string) => (href === '/' ? path === '/' || path.startsWith('/roads') : path.startsWith(href));
   return (
     <nav className="tabs" aria-label="Sections">
-      {TABS.map((t) => (
+      {tabs.map((t) => (
         <Link
           key={t.href}
           href={t.href}

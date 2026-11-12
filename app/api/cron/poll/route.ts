@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSnapshot } from '@/lib/caltrans';
 import { hasDb, recordStatuses } from '@/lib/db';
+import { ensureEmailTables, purgeStale } from '@/lib/subscribers';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,9 @@ export async function GET(request: Request) {
   if (!hasDb()) return NextResponse.json({ ok: false, error: 'DATABASE_URL is not set' }, { status: 500 });
   try {
     const changed = await recordStatuses(snap.routes);
+    // Housekeeping for email signups: drop week-old unconfirmed ones and old rate-limit rows.
+    await ensureEmailTables();
+    await purgeStale();
     return NextResponse.json({ ok: true, changed });
   } catch (e) {
     return NextResponse.json(
