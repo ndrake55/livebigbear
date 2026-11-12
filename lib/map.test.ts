@@ -63,4 +63,21 @@ describe('parseCameras', () => {
     expect(out[0]).toMatchObject({ id: 'caltrans-7', name: 'Test cam', kind: 'image', lon: -117.15 });
     expect(parseCameras(undefined)).toEqual([]);
   });
+  it('counts where cameras drop out and accepts http image addresses', () => {
+    const tally = { inFeed: 0, inArea: 0, onOurRoads: 0, inService: 0, withImage: 0, roadsInArea: '' };
+    const out = parseCameras(
+      {
+        data: [
+          cam('SR-18', '34.22', '-117.1', 'http://cwwp2.dot.ca.gov/a.jpg'),
+          cam('SR-210', '34.13', '-117.2', 'https://cwwp2.dot.ca.gov/b.jpg'),
+          cam('SR-38', '34.2', '-116.9', 'Not Reported'),
+          cam('I-5', '33.0', '-117.2', 'https://cwwp2.dot.ca.gov/c.jpg'),
+        ],
+      },
+      tally,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].src).toBe('https://cwwp2.dot.ca.gov/a.jpg');
+    expect(tally).toEqual({ inFeed: 4, inArea: 3, onOurRoads: 2, inService: 2, withImage: 1, roadsInArea: '18 (1), 210 (1), 38 (1)' });
+  });
 });

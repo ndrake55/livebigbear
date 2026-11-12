@@ -19,7 +19,11 @@ export interface Air {
   ok: boolean;
   error?: string;
   now: AirReading | null;
+  /** True when `now` is today's forecast because no measured reading was available. */
+  nowIsForecast: boolean;
   tomorrow: AirReading | null;
+  /** What each request returned, for the status page. */
+  note: string;
 }
 
 const LEVELS = ['Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous'];
@@ -69,6 +73,15 @@ export function parseObservations(json: unknown): AirReading | null {
   return reading;
 }
 
+/** Today's forecast, used when there is no measured reading. */
+export function parseForecastToday(json: unknown, today: string): AirReading | null {
+  const all = rowsOf(json).map(toReading).filter((r): r is AirReading & { date: string } => r !== null);
+  const w = worst(all.filter((r) => r.date === today));
+  if (!w) return null;
+  const { date: _date, ...reading } = w;
+  return reading;
+}
+
 /** Tomorrow's forecast, given today's date as yyyy-mm-dd in Pacific time. */
 export function parseForecast(json: unknown, today: string): AirReading | null {
   const all = rowsOf(json).map(toReading).filter((r): r is AirReading & { date: string } => r !== null);
@@ -80,28 +93,49 @@ export function parseForecast(json: unknown, today: string): AirReading | null {
   return reading;
 }
 
-async function get(path: string, key: string): Promise<unknown> {
-  const url = `${BASE}${path}?format=application/json&zipCode=${ZIP}&zipcode=${ZIP}&distance=50&API_KEY=${encodeURIComponent(key)}`;
+const HOME = { lat: 34.2439, lon: -116.9114 };
+
+async function get(path: string, query: string, key: string): Promise<unknown> {
+  const url = `${BASE}${path}?format=application/json&${query}&API_KEY=${encodeURIComponent(key)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } });
   if (!res.ok) throw new Error(`AirNow answered ${res.status}`);
   return res.json();
 }
 
+const byZip = `zipCode=${ZIP}&zipcode=${ZIP}&distance=50`;
+const byLatLon = `latitude=${HOME.lat}&longitude=${HOME.lon}&distance=100`;
+
+const describe = (label: string, r: PromiseSettledResult<unknown>) =>
+  r.status === 'fulfilled'
+    ? `${label}: ${rowsOf(r.value).length} rows`
+    : `${label}: ${r.reason instanceof Error ? r.reason.message : 'failed'}`;
+
 export async function getAir(): Promise<Air> {
   const key = process.env.AIRNOW_API_KEY ?? '';
-  if (!key) return { configured: false, ok: false, now: null, tomorrow: null };
+  const off: Air = { configured: false, ok: false, now: null, nowIsForecast: false, tomorrow: null, note: '' };
+  if (!key) return off;
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date());
-  const [obs, fc] = await Promise.allSettled([get('/aq/observation/current/ziplatlong/', key), get('/aq/forecast/current/', key)]);
-  const now = obs.status === 'fulfilled' ? parseObservations(obs.value) : null;
-  const tomorrow = fc.status === 'fulfilled' ? parseForecast(fc.value, today) : null;
-  if (!now && !tomorrow) {
-    const why =
-      obs.status === 'rejected'
-        ? obs.reason instanceof Error
-          ? obs.reason.message
-          : 'request failed'
-        : 'AirNow answered, but with no readings for this area';
-    return { configured: true, ok: false, error: why, now: null, tomorrow: null };
+  const [obsZip, fc] = await Promise.allSettled([
+    get('/aq/observation/current/ziplatlong/', byZip, key),
+    get('/aq/forecast/current/', byZip, key),
+  ]);
+  const notes = [describe('readings by ZIP', obsZip), describe('forecast', fc)];
+  let now = obsZip.status === 'fulfilled' ? parseObservations(obsZip.value) : null;
+  if (!now) {
+    // No reading for the ZIP code: ask again by coordinates with a wider search.
+    const [obsLl] = await Promise.allSettled([get('/aq/observation/current/ziplatlong/', byLatLon, key)]);
+    notes.push(describe('readings by coordinates', obsLl));
+    now = obsLl.status === 'fulfilled' ? parseObservations(obsLl.value) : null;
   }
-  return { configured: true, ok: true, now, tomorrow };
+  let nowIsForecast = false;
+  if (!now && fc.status === 'fulfilled') {
+    now = parseForecastToday(fc.value, today);
+    nowIsForecast = now !== null;
+  }
+  const tomorrow = fc.status === 'fulfilled' ? parseForecast(fc.value, today) : null;
+  const note = notes.join('; ');
+  if (!now && !tomorrow) {
+    return { ...off, configured: true, error: `No air quality data came back (${note})`, note };
+  }
+  return { configured: true, ok: true, now, nowIsForecast, tomorrow, note };
 }

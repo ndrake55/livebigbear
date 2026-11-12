@@ -100,23 +100,46 @@ function deepFind(obj: unknown, key: string, depth = 0): unknown {
   return undefined;
 }
 
-/** Caltrans highway cameras on Hwy 18, 330 and 38 in and around the valley. */
-export function parseCameras(json: unknown): Camera[] {
+export interface CameraTally {
+  inFeed: number;
+  inArea: number;
+  onOurRoads: number;
+  inService: number;
+  withImage: number;
+  /** Roads that have cameras in the area, with how many, e.g. "18 (2), 210 (14)". */
+  roadsInArea: string;
+}
+
+/**
+ * Caltrans highway cameras on Hwy 18, 330 and 38 in and around the valley.
+ * `tally` records how many cameras pass each test, so the status page can show where they drop out.
+ */
+export function parseCameras(json: unknown, tally?: CameraTally): Camera[] {
   const rows = (json as { data?: unknown[] } | null)?.data;
   if (!Array.isArray(rows)) return [];
   const out: Camera[] = [];
+  const roads = new Map<string, number>();
   rows.forEach((row, i) => {
     const cctv = (row as { cctv?: Record<string, unknown> } | null)?.cctv;
     if (!cctv) return;
+    if (tally) tally.inFeed++;
     const loc = (cctv.location ?? {}) as Record<string, unknown>;
     const route = String(loc.route ?? '').replace(/\D/g, '');
     const lat = num(loc.latitude);
     const lon = num(loc.longitude);
-    const url = String(deepFind(cctv, 'currentImageURL') ?? '');
-    if (!['18', '330', '38'].includes(route) || lat === null || lon === null) return;
+    // Some feeds give an http address for an image that is also served securely.
+    const url = String(deepFind(cctv, 'currentImageURL') ?? '').replace(/^http:\/\//, 'https://');
+    if (lat === null || lon === null) return;
     if (lat < 34.0 || lat > 34.47 || lon < -117.45 || lon > -116.6) return;
+    if (tally) tally.inArea++;
+    roads.set(route || '?', (roads.get(route || '?') ?? 0) + 1);
+    if (tally) tally.roadsInArea = [...roads].map(([r, n]) => `${r} (${n})`).join(', ');
+    if (!['18', '330', '38'].includes(route)) return;
+    if (tally) tally.onOurRoads++;
     if (String(cctv.inService ?? 'true').toLowerCase() === 'false') return;
+    if (tally) tally.inService++;
     if (!/^https:\/\//.test(url)) return;
+    if (tally) tally.withImage++;
     out.push({
       id: `caltrans-${String(cctv.index ?? i)}`,
       name: String(loc.locationName || loc.nearbyPlace || `Hwy ${route} camera`),
@@ -131,7 +154,7 @@ export function parseCameras(json: unknown): Camera[] {
   return out;
 }
 
-export async function getCameras(): Promise<{ ok: boolean; error?: string; cameras: Camera[] }> {
+export async function getCameras(): Promise<{ ok: boolean; error?: string; cameras: Camera[]; tally?: CameraTally }> {
   try {
     const res = await fetch(CCTV_URL, {
       headers: { 'User-Agent': 'LiveBigBear/0.5 (livebigbear.com)', Accept: 'application/json' },
@@ -139,7 +162,9 @@ export async function getCameras(): Promise<{ ok: boolean; error?: string; camer
       next: { revalidate: 300 },
     });
     if (!res.ok) throw new Error(`Caltrans answered ${res.status}`);
-    return { ok: true, cameras: [...parseCameras(await res.json()), ...EXTRA_CAMERAS] };
+    const tally: CameraTally = { inFeed: 0, inArea: 0, onOurRoads: 0, inService: 0, withImage: 0, roadsInArea: '' };
+    const found = parseCameras(await res.json(), tally);
+    return { ok: true, cameras: [...found, ...EXTRA_CAMERAS], tally };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Unknown error', cameras: EXTRA_CAMERAS };
   }
