@@ -27,7 +27,7 @@ export interface Trail {
 }
 
 const FIELDS = [
-  'trail_no', 'trail_name', 'trail_type', 'gis_miles', 'segment_length', 'trail_surface',
+  'trail_no', 'trail_name', 'trail_type', 'allowed_terra_use', 'terra_motorized', 'gis_miles', 'segment_length', 'trail_surface',
   'hiker_pedestrian_managed', 'hiker_pedestrian_accpt_disc', 'hiker_pedestrian_restricted',
   'bicycle_managed', 'bicycle_accpt_disc', 'bicycle_restricted',
   'pack_saddle_managed', 'pack_saddle_accpt_disc', 'pack_saddle_restricted',
@@ -43,6 +43,22 @@ const has = (v: unknown) => {
 function allows(a: Record<string, unknown>, key: string): boolean {
   if (/01\/01\s*-\s*12\/31/.test(text(a[`${key}_restricted`]))) return false;
   return has(a[`${key}_managed`]) || has(a[`${key}_accpt_disc`]);
+}
+
+/**
+ * Many records leave the per-use fields as "N/A" and give one summary field instead. It is
+ * either a string of code digits (1 hiker, 2 pack and saddle, 3 bicycle, 4 motorcycle) or words.
+ */
+export function usesFromAllowed(raw: unknown): TrailUse[] {
+  const t = text(raw).toLowerCase();
+  if (!has(t)) return [];
+  const out: TrailUse[] = [];
+  const digits = /^[\d\s,;|]+$/.test(t);
+  if (digits ? t.includes('1') : /hik|pedestrian|foot/.test(t)) out.push('hike');
+  if (digits ? t.includes('2') : /pack|saddle|horse|equestrian/.test(t)) out.push('horse');
+  if (digits ? t.includes('3') : /bicycl|bike/.test(t) && !/e-?bike/.test(t.replace(/bicycl\w*/g, ''))) out.push('bike');
+  if (digits ? t.includes('4') : /motorcycle/.test(t)) out.push('moto');
+  return out;
 }
 
 /** Joins the feed's segments into whole trails, nearest to Big Bear Lake first. */
@@ -65,6 +81,7 @@ export function buildTrails(features: Feature[], listed: Map<string, Listed> = n
     const add = (use: TrailUse, field: string) => {
       if (allows(a, field) && !t!.uses.includes(use)) t!.uses.push(use);
     };
+    for (const u of usesFromAllowed(a.allowed_terra_use)) if (!t.uses.includes(u)) t.uses.push(u);
     add('hike', 'hiker_pedestrian');
     add('bike', 'bicycle');
     add('horse', 'pack_saddle');
@@ -97,14 +114,22 @@ export interface TrailData {
   segments: number;
   /** A raw record, for the status page. */
   sample: string;
+  /** The different values seen in the summary use field, for the status page. */
+  allowedSeen: string;
 }
 
 export async function getTrails(): Promise<TrailData> {
   try {
     const [features, listed] = await Promise.all([queryBox(TRAILS_URL, { fields: FIELDS, geometry: true }), getListed()]);
     const sample = features[0] ? JSON.stringify(features[0].attrs).slice(0, 500) : '';
-    return { ok: true, trails: buildTrails(features, listed.byNumber), segments: features.length, sample };
+    const seen = new Map<string, number>();
+    for (const f of features) {
+      const k = `${text(f.attrs.allowed_terra_use) || 'empty'} / motorized ${text(f.attrs.terra_motorized) || 'empty'}`;
+      seen.set(k, (seen.get(k) ?? 0) + 1);
+    }
+    const allowedSeen = [...seen].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, n]) => `${k} (${n})`).join('; ');
+    return { ok: true, trails: buildTrails(features, listed.byNumber), segments: features.length, sample, allowedSeen };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'error', trails: [], segments: 0, sample: '' };
+    return { ok: false, error: e instanceof Error ? e.message : 'error', trails: [], segments: 0, sample: '', allowedSeen: '' };
   }
 }

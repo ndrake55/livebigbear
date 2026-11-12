@@ -183,7 +183,7 @@ describe('campgrounds', () => {
 });
 
 import { directionsUrl, parseFeatures, seasonOpen, seasonText, startOf, tidyTitle } from './arcgis';
-import { buildTrails } from './trails';
+import { buildTrails, usesFromAllowed } from './trails';
 import { buildOffRoad } from './offroad';
 
 describe('forest trails', () => {
@@ -191,7 +191,7 @@ describe('forest trails', () => {
   it('joins segments into trails, nearest first, with who may use them', () => {
     const features = parseFeatures({
       features: [
-        seg({ TRAIL_NO: '1E01', TRAIL_NAME: 'COUGAR CREST', TRAIL_TYPE: 'TERRA', GIS_MILES: 1.2, HIKER_PEDESTRIAN_MANAGED: '01/01-12/31', BICYCLE_MANAGED: '01/01-12/31' }, [[[-116.95, 34.26]]]),
+        seg({ TRAIL_NO: '1E01', TRAIL_NAME: 'COUGAR CREST', TRAIL_TYPE: 'TERRA', GIS_MILES: 1.2, HIKER_PEDESTRIAN_MANAGED: 'N/A', ALLOWED_TERRA_USE: '13' }, [[[-116.95, 34.26]]]),
         seg({ trail_no: '1E01', trail_name: 'COUGAR CREST', trail_type: 'TERRA', gis_miles: 1.1, hiker_pedestrian_managed: '01/01-12/31' }, [[[-116.96, 34.28]]]),
         seg({ trail_no: '2000', trail_name: 'PCT SECTION 16', trail_type: 'TERRA', gis_miles: 9, hiker_pedestrian_managed: '01/01-12/31', pack_saddle_managed: '01/01-12/31', bicycle_restricted: '01/01-12/31', bicycle_accpt_disc: '01/01-12/31' }, [[[-116.7, 34.3]]]),
         seg({ trail_no: 'S1', trail_name: 'SNOW ROUTE', trail_type: 'SNOW', gis_miles: 3 }),
@@ -202,6 +202,9 @@ describe('forest trails', () => {
     expect(trails[0]).toMatchObject({ miles: 2.3, uses: ['hike', 'bike'], number: '1E01' });
     expect(trails[0].fromLake).toBeLessThan(3);
     expect(trails[1].uses).toEqual(['hike', 'horse']);
+    expect(usesFromAllowed('1234')).toEqual(['hike', 'horse', 'bike', 'moto']);
+    expect(usesFromAllowed('Hiker/Pedestrian, Pack and Saddle')).toEqual(['hike', 'horse']);
+    expect(usesFromAllowed('N/A')).toEqual([]);
   });
   it('finds the loose end nearest town for directions', () => {
     // Two segments joined at -116.93: the joint is not a start, the two outer ends are.
@@ -252,7 +255,7 @@ describe('trailheads', () => {
     const listed = new Map(
       parseListed({
         features: [
-          { attributes: { RECAREANAME: 'Fern Trail 1E31', LATITUDE: 34.22, LONGITUDE: -116.9 } },
+          { attributes: { RECAREANAME: 'Made Up Trail 1E99', LATITUDE: 34.22, LONGITUDE: -116.9 } },
           { attributes: { RECAREANAME: 'Coxey OHV Road 3N14' }, geometry: { x: -117.05, y: 34.3 } },
           { attributes: { RECAREANAME: 'Aspen Glen Picnic Area', LATITUDE: 34.2, LONGITUDE: -116.9 } },
         ],
@@ -260,9 +263,19 @@ describe('trailheads', () => {
     );
     expect(listed.size).toBe(2);
     expect(startFor('1e22', listed, null)).toMatchObject({ kind: 'checked', lat: 34.264863 });
-    expect(startFor('1E31', listed, { lat: 1, lon: 2 })).toMatchObject({ kind: 'listed', lat: 34.22, lon: -116.9 });
+    expect(startFor('1E99', listed, { lat: 1, lon: 2 })).toMatchObject({ kind: 'listed', lat: 34.22, lon: -116.9 });
     expect(startFor('3N14', listed, null)).toMatchObject({ kind: 'listed', lon: -117.05 });
     expect(startFor('9X99', listed, { lat: 1, lon: 2 })).toEqual({ lat: 1, lon: 2, kind: 'guess', where: '' });
     expect(startFor('9X99', listed, null)).toBeNull();
+  });
+});
+
+describe('air readings as AirNow sends them now', () => {
+  it('reads nowcastAQI and aqiCategoryName', () => {
+    const rows = [
+      { dateObserved: '2026-11-11', hourObserved: '17:00', reportingAreaName: 'Big Bear Lake', parameterName: 'PM2.5', nowcastAQI: 8, aqiCategoryName: 'Good' },
+      { dateObserved: '2026-11-11', hourObserved: '17:00', reportingAreaName: 'Big Bear Lake', parameterName: 'O3', nowcastAQI: 31, aqiCategoryName: 'Good' },
+    ];
+    expect(parseObservations(rows)).toEqual({ aqi: 31, category: 'Good', level: 1, pollutant: 'O3', area: 'Big Bear Lake' });
   });
 });
