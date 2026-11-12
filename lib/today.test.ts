@@ -107,7 +107,7 @@ describe('fires', () => {
   });
 });
 
-import { readLakePage } from './probes';
+import { parseLake, readLakePage, waterNote } from './lake';
 
 describe('lake page reader', () => {
   it('pulls the figures out of the page text', () => {
@@ -116,6 +116,18 @@ describe('lake page reader', () => {
       '<div><p>East Launch Ramp: <b>Open</b> daily 7:00 AM to 3:00 PM</p><p>West Launch Ramp: Closed</p></div>';
     expect(readLakePage(html)).toEqual({ temp: '52.2', down: '9.48', ramps: 'East open, West closed' });
     expect(readLakePage('<p>nothing here</p>')).toEqual({ temp: '', down: '', ramps: '' });
+    expect(parseLake(html)).toEqual({
+      ok: true,
+      error: undefined,
+      tempF: 52.2,
+      downFt: 9.48,
+      ramps: [
+        { name: 'East ramp', open: true },
+        { name: 'West ramp', open: false },
+      ],
+    });
+    expect(parseLake('<p>nothing here</p>').ok).toBe(false);
+    expect(waterNote(52.2)).toMatch(/Cold water/);
   });
 });
 
@@ -167,5 +179,51 @@ describe('campgrounds', () => {
     expect(list[0]).toMatchObject({ id: '232286', reservable: true, url: 'https://www.recreation.gov/camping/campgrounds/232286' });
     expect(list[0].miles).toBeLessThan(3);
     expect(parseCampgrounds(null)).toEqual([]);
+  });
+});
+
+import { parseFeatures, seasonOpen, seasonText, tidyTitle } from './arcgis';
+import { buildTrails } from './trails';
+import { buildOffRoad } from './offroad';
+
+describe('forest trails', () => {
+  const seg = (attributes: Record<string, unknown>, paths: number[][][] = []) => ({ attributes, geometry: { paths } });
+  it('joins segments into trails, nearest first, with who may use them', () => {
+    const features = parseFeatures({
+      features: [
+        seg({ TRAIL_NO: '1E01', TRAIL_NAME: 'COUGAR CREST', TRAIL_TYPE: 'TERRA', GIS_MILES: 1.2, HIKER_PEDESTRIAN_MANAGED: '01/01-12/31', BICYCLE_MANAGED: '01/01-12/31' }, [[[-116.95, 34.26]]]),
+        seg({ trail_no: '1E01', trail_name: 'COUGAR CREST', trail_type: 'TERRA', gis_miles: 1.1, hiker_pedestrian_managed: '01/01-12/31' }, [[[-116.96, 34.28]]]),
+        seg({ trail_no: '2000', trail_name: 'PCT SECTION 16', trail_type: 'TERRA', gis_miles: 9, hiker_pedestrian_managed: '01/01-12/31', pack_saddle_managed: '01/01-12/31', bicycle_restricted: '01/01-12/31', bicycle_accpt_disc: '01/01-12/31' }, [[[-116.7, 34.3]]]),
+        seg({ trail_no: 'S1', trail_name: 'SNOW ROUTE', trail_type: 'SNOW', gis_miles: 3 }),
+      ],
+    });
+    const trails = buildTrails(features);
+    expect(trails.map((t) => t.name)).toEqual(['Cougar Crest', 'PCT Section 16']);
+    expect(trails[0]).toMatchObject({ miles: 2.3, uses: ['hike', 'bike'], number: '1E01' });
+    expect(trails[0].fromLake).toBeLessThan(3);
+    expect(trails[1].uses).toEqual(['hike', 'horse']);
+  });
+  it('reads seasons, including ones that wrap the new year', () => {
+    expect(seasonOpen('05/01-11/30', 11, 11)).toBe(true);
+    expect(seasonOpen('05/01-11/30', 12, 5)).toBe(false);
+    expect(seasonOpen('11/15-03/31', 1, 10)).toBe(true);
+    expect(seasonOpen('11/15-03/31', 6, 10)).toBe(false);
+    expect(seasonOpen('open', 6, 10)).toBeNull();
+    expect(seasonText('05/01-11/30')).toBe('May 1 to Nov 30');
+    expect(seasonText('01/01-12/31')).toBe('all year');
+    expect(tidyTitle('GOLD MOUNTAIN 3N69')).toBe('Gold Mountain 3N69');
+  });
+  it('builds off-road routes and leaves out roads for ordinary cars only', () => {
+    const features = parseFeatures({
+      features: [
+        seg({ ID: '3N69', NAME: 'GOLD MOUNTAIN', GIS_MILES: 2.5, HIGHCLEARANCEVEHICLE: 'open', HIGHCLEARANCEVEHICLE_DATESOPEN: '05/01-11/30', MOTORCYCLE: 'open', MOTORCYCLE_DATESOPEN: '05/01-11/30' }),
+        seg({ ID: '3N69', NAME: 'GOLD MOUNTAIN', GIS_MILES: 1.5, HIGHCLEARANCEVEHICLE: 'open' }),
+        seg({ ID: '2N10', NAME: 'MILL CREEK', GIS_MILES: 6, PASSENGERVEHICLE: 'open', PASSENGERVEHICLE_DATESOPEN: '01/01-12/31' }),
+      ],
+    });
+    const summer = buildOffRoad(features, 'road', 7, 4);
+    expect(summer).toHaveLength(1);
+    expect(summer[0]).toMatchObject({ number: '3N69', name: 'Gold Mountain', miles: 4, vehicles: ['High-clearance 4x4', 'Dirt bikes'], seasonLabel: 'May 1 to Nov 30', openNow: true });
+    expect(buildOffRoad(features, 'road', 1, 15)[0].openNow).toBe(false);
   });
 });

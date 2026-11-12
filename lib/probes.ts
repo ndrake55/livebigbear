@@ -1,3 +1,5 @@
+import { readLakePage } from './lake';
+
 /**
  * Checks of data sources we plan to use but have not built on yet.
  * They only feed the /status page, so the real field names and coverage can be seen
@@ -66,16 +68,6 @@ async function arcgisLayerList(name: string, base: string): Promise<Probe> {
   } catch (e) {
     return { name, ok: false, summary: 'Could not read it', detail: e instanceof Error ? e.message : 'error' };
   }
-}
-
-/** The water district shows lake figures on its home page as plain text. */
-export function readLakePage(html: string): { temp: string; down: string; ramps: string } {
-  const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ');
-  const temp = text.match(/Lake Temperature:?\s*([\d.]+)\s*°?\s*F/i)?.[1] ?? '';
-  const down = text.match(/Down from Full:?\s*([\d.]+)/i)?.[1] ?? '';
-  const east = text.match(/East (?:Launch )?Ramp[^.]{0,80}?(Open|Closed)/i)?.[1] ?? '';
-  const west = text.match(/West (?:Launch )?Ramp[^.]{0,80}?(Open|Closed)/i)?.[1] ?? '';
-  return { temp, down, ramps: [east && `East ${east.toLowerCase()}`, west && `West ${west.toLowerCase()}`].filter(Boolean).join(', ') };
 }
 
 async function lakePage(): Promise<Probe> {

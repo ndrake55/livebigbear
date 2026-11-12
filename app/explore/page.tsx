@@ -4,10 +4,13 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   alternates: { canonical: '/explore' },
   title: 'Explore Big Bear: live conditions for getting outside',
-  description: 'Live conditions for camping, the roads, cameras and weather around the Big Bear Valley.',
+  description: 'Live conditions for trails, off-road routes, the lake, camping, roads and weather around the Big Bear Valley.',
 };
 
 const ITEMS: { href: string; name: string; sub: string }[] = [
+  { href: '/trails', name: 'Trails', sub: 'Hiking, biking and horse trails, with today’s trail weather' },
+  { href: '/off-road', name: 'Off-road routes', sub: '4x4, ATV and dirt bike routes, and which are in season' },
+  { href: '/lake', name: 'The lake', sub: 'Water temperature, lake level and which launch ramps are open' },
   { href: '/camping', name: 'Camping', sub: 'Nearby campgrounds with tonight’s low at each one' },
   { href: '/map', name: 'Map and cameras', sub: 'Road status, live cameras, weather and any fires nearby' },
   { href: '/', name: 'Today in Big Bear', sub: 'Roads, trails, the lake, air quality and daylight at a glance' },
@@ -38,7 +41,6 @@ export default function ExplorePage() {
           </Link>
         ))}
       </div>
-      <p className="note">Trails, the lake and fishing are being added next.</p>
     </div>
   );
 }

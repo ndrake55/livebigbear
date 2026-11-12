@@ -16,6 +16,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...ROUTES.map((r) => page(`/roads/${r.id}`, 0.9)),
     ...COMMUNITIES.map((c) => page(`/${c.slug}`, 0.8)),
     page('/explore', 0.7, 'daily'),
+    page('/trails', 0.8, 'daily'),
+    page('/off-road', 0.8, 'daily'),
+    page('/lake', 0.8, 'daily'),
     page('/camping', 0.7, 'daily'),
     page('/alerts', 0.5, 'weekly'),
   ];
