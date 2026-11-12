@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { InstallHint } from './install-hint';
 import { alertsOn } from '@/lib/alerts-on';
+import { SITE } from '@/lib/site';
 import { Nav } from './nav';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://www.livebigbear.com'),
+  metadataBase: new URL(SITE),
   title: {
     default: 'Live Big Bear: road conditions and chain control right now',
     template: '%s | Live Big Bear',
@@ -16,9 +17,8 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'Live Big Bear',
     locale: 'en_US',
-    images: [{ url: '/icons/icon-512.png', width: 512, height: 512, alt: 'Live Big Bear' }],
   },
-  twitter: { card: 'summary' },
+  twitter: { card: 'summary_large_image' },
   applicationName: 'Live Big Bear',
   appleWebApp: { capable: true, title: 'Live Big Bear', statusBarStyle: 'default' },
 };

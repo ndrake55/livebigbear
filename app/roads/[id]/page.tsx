@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { ROUTES, routeById } from '@/lib/routes';
 import { EXPLAIN, HEADLINE, LABEL, parseLevel } from '@/lib/status';
 import { loadMapData } from '@/lib/mapdata';
-import { loadSnapshot } from '@/lib/view';
+import { crumbs, jsonLd } from '@/lib/site';
+import { loadSnapshot, pacificTime } from '@/lib/view';
 import { MapView } from '../../map/map-view';
 
 export const revalidate = 120;
@@ -33,6 +34,16 @@ export default async function RoutePage({ params, searchParams }: Props) {
   const r = snap.routes.find((x) => x.def.id === id)!;
   const mapData = await loadMapData(snap, { demo: snap.demo, weather: false });
   const q = snap.demo ? '?demo=storm' : '';
+  const question = `Are chains required on ${r.def.name} to Big Bear right now?`;
+  const answer =
+    r.level === 'unknown'
+      ? `Caltrans is not reporting a status for ${r.def.name} (${r.def.sub}) right now.`
+      : `As of ${pacificTime(snap.fetchedAt)} Pacific time, ${r.def.name} (${r.def.sub}): ${HEADLINE[r.level].toLowerCase()}. ${EXPLAIN[r.level]}`;
+  const faq = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [{ '@type': 'Question', name: question, acceptedAnswer: { '@type': 'Answer', text: answer } }],
+  };
 
   return (
     <div className="shell">
@@ -52,6 +63,20 @@ export default async function RoutePage({ params, searchParams }: Props) {
         <h2>{HEADLINE[r.level]}</h2>
         <p>{EXPLAIN[r.level]}</p>
         {r.since && r.level !== 'unknown' && <div className="since">Reported since {r.since}</div>}
+      </section>
+
+      {!snap.demo && (
+        <>
+          <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(faq)} />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={jsonLd(crumbs([{ name: 'Roads', path: '/' }, { name: r.def.name, path: `/roads/${r.def.id}` }]))}
+          />
+        </>
+      )}
+      <section>
+        <h2>{question}</h2>
+        <p className="lede">{answer}</p>
       </section>
 
       <section>

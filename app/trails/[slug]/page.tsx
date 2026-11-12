@@ -6,10 +6,18 @@ import { COMMUNITIES } from '@/lib/communities';
 import { buildToday } from '@/lib/today';
 import { getTrails, USE_LABEL } from '@/lib/trails';
 import { getWeather } from '@/lib/weather';
+import { hasDb } from '@/lib/db';
+import { ratingFor } from '@/lib/ratings';
+import { crumbs, jsonLd, placeLd } from '@/lib/site';
 import { PlaceMap } from '../../place-map';
 import { RateStars } from '../../rate-stars';
 
 export const revalidate = 1800;
+
+const uses0 = (uses: string[]) => {
+  const names = uses.filter((u) => u !== 'moto').map((u) => ({ hike: 'hiking', bike: 'mountain biking', horse: 'horseback riding' })[u]);
+  return names.length ? `Open to ${names.join(', ')}` : '';
+};
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -43,6 +51,15 @@ export default async function TrailPage({ params }: Props) {
       </div>
     );
   }
+  const rating = hasDb() ? await ratingFor(`trail:${trail.slug}`).catch(() => null) : null;
+  const about = [
+    `${trail.name} is a ${trail.miles !== null ? `${trail.miles}-mile ` : ''}Forest Service trail near Big Bear Lake, California`,
+    uses0(trail.uses),
+    trail.difficulty ? `Difficulty: ${trail.difficulty.label.toLowerCase()}` : '',
+    trail.start?.kind === 'checked' ? `Trailhead: ${trail.start.where}` : '',
+  ]
+    .filter(Boolean)
+    .join('. ');
   const outlook = buildToday([], weather, new Date()).lines.find((l) => l.activity === 'Trails');
   const uses = trail.uses.filter((u) => u !== 'moto').map((u) => USE_LABEL[u]);
   const start = trail.start;
@@ -52,6 +69,11 @@ export default async function TrailPage({ params }: Props) {
 
   return (
     <div className="shell">
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(placeLd({ name: trail.name, description: `${about}.`, path: `/trails/${trail.slug}`, at: trail.start, rating }))} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={jsonLd(crumbs([{ name: 'Explore', path: '/explore' }, { name: 'Trails', path: '/trails' }, { name: trail.name, path: `/trails/${trail.slug}` }]))}
+      />
       <Link href="/trails" className="back">
         <span aria-hidden="true">‹</span> Trails
       </Link>
@@ -59,6 +81,8 @@ export default async function TrailPage({ params }: Props) {
         <h1>{trail.name}</h1>
         <p>{trail.number ? `Forest Service trail ${trail.number}` : 'Forest Service trail'}</p>
       </div>
+
+      <p className="lede">{about}.</p>
 
       <div className="facts">
         {trail.difficulty && <span className="fact">{trail.difficulty.label}</span>}
