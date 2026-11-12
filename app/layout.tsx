@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { InstallHint } from './install-hint';
+import { alertsOn } from '@/lib/alerts-on';
 import { Nav } from './nav';
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         {children}
-        <Nav />
+        <Nav alerts={alertsOn()} />
         <InstallHint />
       </body>
     </html>

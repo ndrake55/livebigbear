@@ -4,7 +4,9 @@ import { APPROACHES } from '@/lib/routes';
 import { LABEL, verdict } from '@/lib/status';
 import { getWeather, STORM_WEATHER } from '@/lib/weather';
 import { loadSnapshot, pacificTime } from '@/lib/view';
+import { alertsOn } from '@/lib/alerts-on';
 import { InstallLink } from './install-hint';
+import { SignupForm } from './signup-form';
 import { WeatherSection } from './weather-section';
 
 export const revalidate = 120;
@@ -83,6 +85,16 @@ export default async function Home({
       </section>
 
       <WeatherSection weather={weather} place={picked ? picked.name : 'whole valley'} />
+
+      {alertsOn() && (
+        <section className="card">
+          <h2>Free storm-day emails</h2>
+          <p className="note" style={{ marginBottom: 12 }}>
+            A morning summary when chains or closures are in effect. Nothing on clear days.
+          </p>
+          <SignupForm />
+        </section>
+      )}
 
       <footer className="foot">
         Road status comes from Caltrans and weather from the National Weather Service. Both can lag conditions on
