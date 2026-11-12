@@ -173,3 +173,4 @@ img.panel-media { max-height: 240px; object-fit: contain; }
 .btn { display: flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 24px; background: var(--accent); color: #fff; font-weight: 600; font-size: 16px; text-decoration: none; }
 .facts { display: flex; flex-wrap: wrap; gap: 8px; }
 .fact { padding: 6px 12px; border-radius: 16px; background: #fff; border: 1px solid #c5cfd9; font-size: 14px; font-weight: 500; }
+.btn-quiet { background: #fff; color: var(--ink); border: 1px solid #c5cfd9; }
