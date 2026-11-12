@@ -6,6 +6,7 @@ import { SignupForm } from '../signup-form';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/alerts' },
   title: 'Free Big Bear storm-day emails',
   description:
     'Free email on storm days with chain control, road closures and weather for the Big Bear Valley.',

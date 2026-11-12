@@ -7,6 +7,7 @@ import { MapView } from './map-view';
 export const revalidate = 120;
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/map' },
   title: 'Big Bear road map: live chain control, cameras and weather',
   description:
     'Live map of chain control, road cameras and weather on every road into the Big Bear Valley: Hwy 18, 330 and 38.',

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/explore' },
   title: 'Explore Big Bear: live conditions for getting outside',
   description: 'Live conditions for camping, the roads, cameras and weather around the Big Bear Valley.',
 };

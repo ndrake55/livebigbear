@@ -11,7 +11,14 @@ export const metadata: Metadata = {
     template: '%s | Live Big Bear',
   },
   description:
-    'Live chain control and road status for every route into the Big Bear Valley: Hwy 330, Hwy 18 and Hwy 38.',
+    'Live chain control and road status for every route into the Big Bear Valley (Hwy 330, Hwy 18 and Hwy 38), with weather, cameras and outdoor conditions.',
+  openGraph: {
+    type: 'website',
+    siteName: 'Live Big Bear',
+    locale: 'en_US',
+    images: [{ url: '/icons/icon-512.png', width: 512, height: 512, alt: 'Live Big Bear' }],
+  },
+  twitter: { card: 'summary' },
   applicationName: 'Live Big Bear',
   appleWebApp: { capable: true, title: 'Live Big Bear', statusBarStyle: 'default' },
 };

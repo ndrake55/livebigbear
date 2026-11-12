@@ -17,6 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${def.name} road conditions and chain control`,
     description: `Live chain control status for ${def.name}, ${def.sub}, into Big Bear.`,
+    alternates: { canonical: `/roads/${def.id}` },
   };
 }
 

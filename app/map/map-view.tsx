@@ -174,7 +174,7 @@ function Panel({ item, onClose, focus }: { item: Selected; onClose: () => void; 
         <div className="panel-sub">
           {w.period}: {w.short}
         </div>
-        <Link className="panel-link" href={`/?c=${w.slug}`}>
+        <Link className="panel-link" href={`/${w.slug}`}>
           Full forecast
         </Link>
       </>
