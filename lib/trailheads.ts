@@ -33,6 +33,20 @@ export const KNOWN_TRAILHEADS: Record<string, Trailhead> = {
     where: 'North Shore Drive just west of Fawnskin, across from Grout Bay Picnic Area',
     notice: 'This trailhead closes in winter and spring to protect nesting bald eagles. Check with the Big Bear Discovery Center first.',
   },
+  // Added from a second pass over the Forest Service trail pages.
+  '0E01': { lat: 34.215149, lon: -116.92253, where: 'Forest Road 2N10, about 4 miles past Aspen Glen. The trailhead sign is on the right.' },
+  '1E25': { lat: 34.227281, lon: -116.904815, where: 'Start of the trail as listed by the Forest Service; it is reached from other trails' },
+  '1E29': { lat: 34.217455, lon: -116.8797, where: 'Junction of Mill Creek Road 2N10 and Radford Truck Trail 2N06' },
+  '1E30': { lat: 34.230155, lon: -116.86951, where: 'Start of the trail as listed by the Forest Service; it is reached from Pirates trail' },
+  '1E31': { lat: 34.23571, lon: -116.876047, where: 'Forest Road 2N99, just west of the Bristlecone trailhead' },
+  '1E32': { lat: 34.235754, lon: -116.871162, where: 'Along the bottom of Snow Summit, near Pineknot Campground' },
+  '1E51': { lat: 34.263279, lon: -116.905563, where: 'Behind the Big Bear Discovery Center on North Shore Drive' },
+  '1W05': { lat: 34.286726, lon: -116.975191, where: 'Hanna Flat Campground, between sites 54 and 55, when the campground is open. You can also start from the Grays Peak trailhead.' },
+  '1W11': { lat: 34.215266, lon: -116.975018, where: 'Forest Road 2N11, one mile off Forest Road 2N10. These dirt roads close to vehicles in winter.' },
+  '1W12': { lat: 34.209514, lon: -116.944591, where: "Where Clark's Grade Road meets Skyline Road" },
+  // Bluff Mesa and Siberia Creek both start from the Champion Lodgepole trailhead.
+  '1W16': { lat: 34.215266, lon: -116.975018, where: 'Park at the Champion Lodgepole trailhead on Forest Road 2N11. These dirt roads close to vehicles in winter.' },
+  '1W04': { lat: 34.215266, lon: -116.975018, where: 'Shares the Champion Lodgepole trailhead on Forest Road 2N11. These dirt roads close to vehicles in winter.' },
   '2E18': { lat: 34.218711, lon: -116.805989, where: 'Forest Road 2N93, off Hwy 38 at Hatchery Road. The dirt road is rough.' },
 };
 

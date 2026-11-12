@@ -42,9 +42,10 @@ function toReading(raw: unknown): (AirReading & { date: string }) | null {
   const row = raw as Record<string, unknown>;
   const cat = pick(row, 'Category');
   const catObj = cat && typeof cat === 'object' ? (cat as Record<string, unknown>) : {};
-  const name = String(pick(catObj, 'Name') ?? pick(row, 'CategoryName') ?? (typeof cat === 'string' ? cat : '')).trim();
-  const num = Number(pick(catObj, 'Number') ?? pick(row, 'CategoryNumber') ?? 0);
-  const aqiRaw = Number(pick(row, 'AQI'));
+  const name = String(pick(catObj, 'Name') ?? pick(row, 'CategoryName', 'aqiCategoryName') ?? (typeof cat === 'string' ? cat : '')).trim();
+  const num = Number(pick(catObj, 'Number') ?? pick(row, 'CategoryNumber', 'aqiCategoryNumber') ?? 0);
+  // Current readings call it nowcastAQI; forecasts call it AQI.
+  const aqiRaw = Number(pick(row, 'AQI', 'nowcastAQI') ?? NaN);
   const aqi = Number.isFinite(aqiRaw) && aqiRaw >= 0 ? Math.round(aqiRaw) : null;
   let level = Number.isFinite(num) && num >= 1 && num <= 6 ? num : LEVELS.findIndex((l) => l.toLowerCase() === name.toLowerCase()) + 1;
   if (!level && aqi !== null) level = aqi <= 50 ? 1 : aqi <= 100 ? 2 : aqi <= 150 ? 3 : aqi <= 200 ? 4 : aqi <= 300 ? 5 : 6;
@@ -54,7 +55,7 @@ function toReading(raw: unknown): (AirReading & { date: string }) | null {
     category: name || LEVELS[level - 1] || 'Unknown',
     level,
     pollutant: String(pick(row, 'ParameterName', 'Parameter') ?? '').trim(),
-    area: String(pick(row, 'ReportingArea') ?? '').trim(),
+    area: String(pick(row, 'ReportingArea', 'reportingAreaName') ?? '').trim(),
     date: String(pick(row, 'DateForecast', 'DateValid', 'DateObserved') ?? '').trim().slice(0, 10),
   };
 }
