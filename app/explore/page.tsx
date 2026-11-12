@@ -12,6 +12,7 @@ const ITEMS: { href: string; name: string; sub: string }[] = [
   { href: '/off-road', name: 'Off-road routes', sub: '4x4, ATV and dirt bike routes, and which are in season' },
   { href: '/lake', name: 'The lake', sub: 'Water temperature, lake level and which launch ramps are open' },
   { href: '/camping', name: 'Camping', sub: 'Nearby campgrounds with tonight’s low at each one' },
+  { href: '/cameras', name: 'Live cameras', sub: 'Webcams for the roads, the ski resorts, the village and the eagle nest' },
   { href: '/map', name: 'Map and cameras', sub: 'Road status, live cameras, weather and any fires nearby' },
   { href: '/', name: 'Today in Big Bear', sub: 'Roads, trails, the lake, air quality and daylight at a glance' },
 ];
@@ -41,6 +42,9 @@ export default function ExplorePage() {
           </Link>
         ))}
       </div>
+      <p className="note">
+        <Link href="/about">About Live Big Bear</Link>: who runs it and where the data comes from.
+      </p>
     </div>
   );
 }

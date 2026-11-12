@@ -25,7 +25,8 @@ describe('ratings', () => {
   it('accepts only well-formed item names', () => {
     expect(isItem('trail:pine-knot-1e01')).toBe(true);
     expect(isItem('offroad:3n16-holcomb-valley-road')).toBe(true);
-    for (const bad of ['', 'trail:', 'camp:serrano', "trail:x'; DROP TABLE", 'trail:UPPER', `trail:${'a'.repeat(90)}`, 5, null]) {
+    expect(isItem('camp:serrano-232249')).toBe(true);
+    for (const bad of ['', 'trail:', 'lake:east-ramp', "trail:x'; DROP TABLE", 'trail:UPPER', `trail:${'a'.repeat(90)}`, 5, null]) {
       expect(isItem(bad)).toBe(false);
     }
   });

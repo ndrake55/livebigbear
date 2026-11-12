@@ -1,8 +1,10 @@
 import { getSql, hasDb } from './db';
 
 /** Ratings are kept per item, e.g. "trail:pine-knot-1e01" or "offroad:3n16-holcomb-valley-road". */
-const ITEM = /^(trail|offroad):[a-z0-9][a-z0-9-]{1,79}$/;
+const ITEM = /^(trail|offroad|camp):[a-z0-9][a-z0-9-]{1,79}$/;
 export const isItem = (v: unknown): v is string => typeof v === 'string' && ITEM.test(v);
+
+export type RatedKind = 'trail' | 'offroad' | 'camp';
 
 export interface Rating {
   /** Average of visitors' stars, one decimal. */
@@ -80,7 +82,7 @@ export async function myStars(item: string, voter: string): Promise<number | nul
 }
 
 /** Every rating for one kind of item. Returns an empty map if the database cannot be reached. */
-export async function ratingsFor(kind: 'trail' | 'offroad'): Promise<Map<string, Rating>> {
+export async function ratingsFor(kind: RatedKind): Promise<Map<string, Rating>> {
   if (!hasDb()) return new Map();
   try {
     await ensureRatingTables();
@@ -99,7 +101,9 @@ export async function ratingsFor(kind: 'trail' | 'offroad'): Promise<Map<string,
  * sites consulted in November 2026. This is our own ranking, not anyone's star rating, and
  * visitors' ratings take over as they come in. Keyed by Forest Service trail or road number.
  */
-export const STARTING_ORDER: Record<'trail' | 'offroad', string[]> = {
+export const STARTING_ORDER: Record<RatedKind, string[]> = {
+  // Campgrounds have no starting order: they rank by visitors' ratings alone.
+  camp: [],
   trail: [
     '1E01', '1E22', '1W03', '1E12', '1E50', '1W06', '1E23', '1W11', '1E27', '2E18',
     '1E30', '1E32', '1E24', '1W05', '1E31', '1W16', '1W12', '1E29', '1E40', '0E01',
@@ -112,7 +116,7 @@ export const STARTING_ORDER: Record<'trail' | 'offroad', string[]> = {
  * Each visitor rating then adds or subtracts: five stars adds 5, three adds 1, one takes away 3.
  * A handful of real ratings is enough to move an item past the starting order.
  */
-export function popularity(kind: 'trail' | 'offroad', number: string, rating: Rating | undefined): number {
+export function popularity(kind: RatedKind, number: string, rating: Rating | undefined): number {
   const place = STARTING_ORDER[kind].indexOf(number.toUpperCase());
   const start = place === -1 ? 0 : 40 - place * 2;
   const votes = rating ? rating.count * (rating.avg - 2.5) * 2 : 0;

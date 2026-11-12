@@ -15,6 +15,7 @@ Live Big Bear covers Big Bear Lake, Big Bear City, Sugarloaf, Fawnskin and Baldw
 ## Roads and chain control
 - [All roads into Big Bear](${SITE}/): which roads are open, where chains are required, and the easiest way up right now
 ${ROUTES.map((r) => `- [${r.name}](${SITE}/roads/${r.id}): ${r.sub}`).join('\n')}
+- [Live cameras](${SITE}/cameras): webcams for the highways, the ski resorts, Big Bear Boulevard, the airport and the bald eagle nest
 - [Live road map](${SITE}/map): road status, highway and resort cameras, weather and any nearby fires
 
 ## Weather by community
@@ -24,7 +25,8 @@ ${COMMUNITIES.map((c) => `- [${c.name}](${SITE}/${c.slug}): current weather, for
 - [Trails](${SITE}/trails): hiking, mountain biking and horse trails with difficulty, length, trailhead directions, a map and visitor ratings
 - [Off-road routes](${SITE}/off-road): 4x4, ATV and dirt bike routes with allowed vehicles and open season
 - [The lake](${SITE}/lake): water temperature, lake level and which public launch ramps are open
-- [Camping](${SITE}/camping): nearby campgrounds with tonight's forecast low at each
+- [Camping](${SITE}/camping): nearby campgrounds with tonight's forecast low at each, a map, directions and visitor ratings
+- [About](${SITE}/about): who runs Live Big Bear and how often each source is checked
 
 ## Where the data comes from
 - Road status and chain control: Caltrans

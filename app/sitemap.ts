@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { getCampgrounds } from '@/lib/camping';
 import { COMMUNITIES } from '@/lib/communities';
 import { getOffRoad } from '@/lib/offroad';
 import { ROUTES } from '@/lib/routes';
@@ -10,7 +11,7 @@ import { SITE as BASE } from '@/lib/site';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // If the Forest Service is not answering, the sitemap simply lists fewer pages.
-  const [trails, offroad] = await Promise.all([getTrails(), getOffRoad()]);
+  const [trails, offroad, camps] = await Promise.all([getTrails(), getOffRoad(), getCampgrounds()]);
   const page = (path: string, priority: number, changeFrequency: 'hourly' | 'daily' | 'weekly' = 'hourly') => ({
     url: `${BASE}${path}`,
     changeFrequency,
@@ -27,7 +28,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     page('/lake', 0.8, 'daily'),
     ...trails.trails.map((t) => page(`/trails/${t.slug}`, 0.6, 'weekly')),
     ...offroad.routes.map((r) => page(`/off-road/${r.slug}`, 0.6, 'weekly')),
+    page('/cameras', 0.9),
     page('/camping', 0.7, 'daily'),
+    page('/about', 0.4, 'weekly'),
+    ...camps.campgrounds.map((c) => page(`/camping/${c.slug}`, 0.6, 'weekly')),
     page('/alerts', 0.5, 'weekly'),
   ];
 }
