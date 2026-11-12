@@ -5,6 +5,7 @@ import { getCampgrounds } from '@/lib/camping';
 export const revalidate = 1800;
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/camping' },
   title: 'Big Bear campgrounds: tonight’s low at each one',
   description:
     'Campgrounds within 20 miles of Big Bear Lake, with tonight’s forecast low at each and a link to check dates.',

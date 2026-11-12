@@ -133,6 +133,9 @@ export async function getAir(): Promise<Air> {
     nowIsForecast = now !== null;
   }
   const tomorrow = fc.status === 'fulfilled' ? parseForecast(fc.value, today) : null;
+  // Rows that came back but could not be read: show one, so the field names can be seen.
+  const unread = !now || nowIsForecast ? rowsOf(obsZip.status === 'fulfilled' ? obsZip.value : null)[0] : undefined;
+  if (unread) notes.push(`first reading row as sent: ${JSON.stringify(unread).slice(0, 400)}`);
   const note = notes.join('; ');
   if (!now && !tomorrow) {
     return { ...off, configured: true, error: `No air quality data came back (${note})`, note };

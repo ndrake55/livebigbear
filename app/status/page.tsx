@@ -8,6 +8,9 @@ import { getWeather, isFresh } from '@/lib/weather';
 import { getCameras } from '@/lib/cameras';
 import { FIRE_RADIUS_MILES, getFires } from '@/lib/fires';
 import { runProbes } from '@/lib/probes';
+import { getTrails } from '@/lib/trails';
+import { getOffRoad } from '@/lib/offroad';
+import { getLake } from '@/lib/lake';
 import { getAir } from '@/lib/air';
 import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
@@ -18,7 +21,7 @@ export const metadata: Metadata = { title: 'Data check', robots: { index: false 
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const [snap, weather, cams, fireData, probes, air, camps] = await Promise.all([
+  const [snap, weather, cams, fireData, probes, air, camps, trails, offroad, lake] = await Promise.all([
     getSnapshot(),
     getWeather(COMMUNITIES[0]),
     getCameras(),
@@ -26,6 +29,9 @@ export default async function StatusPage() {
     runProbes(),
     getAir(),
     getCampgrounds(),
+    getTrails(),
+    getOffRoad(),
+    getLake(),
   ]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   let subs: Record<string, number> | null = null;
@@ -142,6 +148,27 @@ export default async function StatusPage() {
           <span className={`tag ${camps.ok && camps.campgrounds.length > 0 ? 'tag-open' : camps.configured ? 'tag-closed' : 'tag-unknown'}`}>
             {camps.ok ? (camps.campgrounds.length > 0 ? 'Working' : 'None found') : camps.configured ? 'Failing' : 'Not set up'}
           </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Trails (Forest Service)</span>
+            <span className="row-sub">{trails.ok ? `${trails.trails.length} trails from ${trails.segments} segments. With a use listed: ${trails.trails.filter((t) => t.uses.length > 0).length}. First: ${trails.trails.slice(0, 5).map((t) => `${t.name} (${t.miles ?? '?'} mi, ${t.uses.join('/') || 'no use listed'})`).join('; ')}. Raw record: ${trails.sample}` : trails.error}</span>
+          </span>
+          <span className={`tag ${trails.ok ? 'tag-open' : 'tag-closed'}`}>{trails.ok ? 'Working' : 'Problem'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Off-road routes (Forest Service)</span>
+            <span className="row-sub">{`${offroad.routes.length} routes. ${offroad.note}. First: ${offroad.routes.slice(0, 5).map((r) => `${r.number} ${r.name} (${r.miles ?? '?'} mi, ${r.season || 'no season'})`).join('; ')}. Raw record: ${offroad.sample}`}</span>
+          </span>
+          <span className={`tag ${offroad.ok ? 'tag-open' : 'tag-closed'}`}>{offroad.ok ? 'Working' : 'Problem'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Lake figures (water district)</span>
+            <span className="row-sub">{lake.ok ? `Water ${lake.tempF ?? '?'}°F, ${lake.downFt ?? '?'} ft down, ${lake.ramps.map((r) => `${r.name} ${r.open ? 'open' : 'closed'}`).join(', ') || 'no ramps found'}` : lake.error}</span>
+          </span>
+          <span className={`tag ${lake.ok ? 'tag-open' : 'tag-closed'}`}>{lake.ok ? 'Working' : 'Problem'}</span>
         </div>
         <div className="row">
           <span className="row-text">
