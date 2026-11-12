@@ -1,6 +1,6 @@
 import { type Feature, number, queryBox, slugify, startOf, text, tidyTitle } from './arcgis';
 import { milesBetween } from './fires';
-import { knownUses } from './trail-uses';
+import { type Difficulty, knownDifficulty, knownUses } from './trail-uses';
 import { getListed, type Listed, type Start, startFor } from './trailheads';
 
 export const TRAILS_URL = 'https://apps.fs.usda.gov/arcx/rest/services/EDW/EDW_TrailNFSPublish_01/MapServer/0';
@@ -28,6 +28,8 @@ export interface Trail {
   usesChecked: boolean;
   /** Something to know about who may use the trail. */
   useNote: string;
+  /** Published difficulty, when one has been looked up. */
+  difficulty: Difficulty | null;
   /** On the Forest Service motor vehicle map, so it belongs with the off-road routes. */
   motorized: boolean;
   /** Straight-line miles from Big Bear Lake village to the nearest part of the trail. */
@@ -87,7 +89,7 @@ export function buildTrails(
     const key = `${no}|${rawName.toUpperCase()}`;
     let t = byTrail.get(key);
     if (!t) {
-      t = { id: key, slug: slugify(`${rawName || 'trail'}-${no}`), paths: [], start: null, name: tidyTitle(rawName || `Trail ${no}`), number: no, miles: null, milesSum: 0, uses: [], usesChecked: false, useNote: '', motorized: false, fromLake: null, surface: '' };
+      t = { id: key, slug: slugify(`${rawName || 'trail'}-${no}`), paths: [], start: null, name: tidyTitle(rawName || `Trail ${no}`), number: no, miles: null, milesSum: 0, uses: [], usesChecked: false, useNote: '', difficulty: null, motorized: false, fromLake: null, surface: '' };
       byTrail.set(key, t);
     }
     t.milesSum += number(a.gis_miles) ?? number(a.segment_length) ?? 0;
@@ -116,7 +118,7 @@ export function buildTrails(
       const known = knownUses(t.number);
       const isMotor = motorized.has(t.number.toUpperCase()) || (t.uses.length > 0 && t.uses.every((u) => u === 'moto'));
       const uses: TrailUse[] = known ? known.uses : t.uses.length > 0 ? t.uses : isMotor ? [] : ['hike'];
-      return { ...t, milesSum, uses, usesChecked: Boolean(known) || t.uses.length > 0, useNote: known?.note ?? '', motorized: isMotor && !known };
+      return { ...t, milesSum, uses, usesChecked: Boolean(known) || t.uses.length > 0, useNote: known?.note ?? '', difficulty: knownDifficulty(t.number), motorized: isMotor && !known };
     })
     .map(({ milesSum, ...t }) => ({
       ...t,

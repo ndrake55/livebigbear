@@ -66,3 +66,46 @@ export function knownUses(trailNumber: string): UseEntry | null {
   if (/^2E03(\.|$)/.test(no)) return SART;
   return null;
 }
+
+export type Level = 'easy' | 'moderate' | 'hard';
+export interface Difficulty {
+  level: Level;
+  /** The rating as the source words it. */
+  label: string;
+}
+
+const d = (level: Level, label: string): Difficulty => ({ level, label });
+
+/**
+ * Difficulty as published by the Forest Service on its trail pages and in its Big Bear Valley
+ * Hiking Trails handout, November 2026. Cabin 89 and Skyline have no Forest Service rating, so
+ * theirs come from the Big Bear visitor bureau trail guide. Where a source gives a range, the
+ * level used for filtering is the harder end. Keyed by trail number.
+ */
+export const KNOWN_DIFFICULTY: Record<string, Difficulty> = {
+  '1E23': d('easy', 'Easy'),
+  '1E51': d('easy', 'Easy'),
+  '1E50.1': d('easy', 'Easy'),
+  '1E32': d('easy', 'Easy'),
+  '1E31': d('easy', 'Easy'),
+  '1W11': d('easy', 'Easy'),
+  '1W16': d('easy', 'Easy'),
+  '1E25': d('moderate', 'Easy to moderate'),
+  '1E29': d('moderate', 'Easy to moderate'),
+  '1E30': d('moderate', 'Easy to moderate'),
+  '1W12': d('moderate', 'Easy to moderate'),
+  '1E12': d('moderate', 'Beginner to intermediate'),
+  '1E27': d('moderate', 'Moderate'),
+  '1W06': d('moderate', 'Moderate'),
+  '1W05': d('moderate', 'Moderate'),
+  '0E01': d('moderate', 'Moderate'),
+  '1E01': d('hard', 'Moderate to difficult'),
+  '1E22': d('hard', 'Moderate to difficult'),
+  '1W03': d('hard', 'Moderate to difficult'),
+  '1E40': d('hard', 'Moderate to difficult'),
+  '1E24': d('hard', 'Intermediate to difficult'),
+  '2E18': d('hard', 'Difficult'),
+  '1W04': d('hard', 'Strenuous'),
+};
+
+export const knownDifficulty = (trailNumber: string): Difficulty | null => KNOWN_DIFFICULTY[trailNumber.toUpperCase()] ?? null;

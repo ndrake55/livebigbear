@@ -61,6 +61,7 @@ export default async function TrailPage({ params }: Props) {
       </div>
 
       <div className="facts">
+        {trail.difficulty && <span className="fact">{trail.difficulty.label}</span>}
         {trail.miles !== null && <span className="fact">{trail.miles} mi long</span>}
         {trail.fromLake !== null && <span className="fact">{trail.fromLake} mi from Big Bear Lake</span>}
         {uses.map((u) => (
