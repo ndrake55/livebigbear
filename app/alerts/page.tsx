@@ -60,6 +60,9 @@ export default function AlertsPage() {
           </div>
         </div>
       </section>
+      <p className="note">
+        <Link href="/alerts/sample">See a sample storm-day email</Link>.
+      </p>
     </div>
   );
 }

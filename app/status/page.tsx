@@ -12,6 +12,8 @@ import { getTrails } from '@/lib/trails';
 import { getOffRoad } from '@/lib/offroad';
 import { getLake } from '@/lib/lake';
 import { getListed } from '@/lib/trailheads';
+import { fetchRoadLines } from '@/lib/geometry';
+import { plan, recentSends } from '@/lib/storm-mail';
 import { getAir } from '@/lib/air';
 import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
@@ -22,7 +24,7 @@ export const metadata: Metadata = { title: 'Data check', robots: { index: false 
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const [snap, weather, cams, fireData, probes, air, camps, trails, offroad, lake, listed] = await Promise.all([
+  const [snap, weather, cams, fireData, probes, air, camps, trails, offroad, lake, listed, roadLines] = await Promise.all([
     getSnapshot(),
     getWeather(COMMUNITIES[0]),
     getCameras(),
@@ -34,6 +36,10 @@ export default async function StatusPage() {
     getOffRoad(),
     getLake(),
     getListed(),
+    fetchRoadLines().then(
+      (l) => ({ ok: true, text: Object.entries(l).map(([k, v]) => `${k}: ${v.length} pieces`).join(', ') }),
+      (e) => ({ ok: false, text: e instanceof Error ? e.message : 'failed' }),
+    ),
   ]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   let subs: Record<string, number> | null = null;
@@ -46,6 +52,8 @@ export default async function StatusPage() {
       subsError = e instanceof Error ? e.message : 'database error';
     }
   }
+  const stormPlan = plan(snap.routes, [], new Date());
+  const sends = hasDb() ? await recentSends().catch(() => []) : [];
   const obsFresh = isFresh(weather.observation, new Date());
   const valley = snap.points.filter((p) => ['18', '330', '38'].includes(p.route));
   const routeFor = (p: (typeof valley)[number]) => ROUTES.find((r) => r.match(p))?.name ?? 'not assigned';
@@ -184,9 +192,17 @@ export default async function StatusPage() {
         <div className="row">
           <span className="row-text">
             <span className="row-name">Road shapes for map lines</span>
+            <span className="row-sub">{roadLines.text}</span>
+          </span>
+          <span className={`tag ${roadLines.ok ? 'tag-open' : 'tag-closed'}`}>{roadLines.ok ? 'Working' : 'Failing'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Storm-day emails</span>
             <span className="row-sub">
-              Open <a href="/api/road-lines">/api/road-lines</a>. A long list of numbers means it works; an
-              error message means the lines will not draw.
+              {!isMailConfigured()
+                ? 'Waiting for email to be set up.'
+                : `Right now: ${stormPlan.kind === 'none' ? `nothing to send. ${stormPlan.why}` : `a ${stormPlan.kind} email is due.`} Recent sends: ${sends.length ? sends.map((x) => `${x.key} (${x.sent} sent, ${x.failed} failed)`).join('; ') : 'none yet'}`}
             </span>
           </span>
         </div>

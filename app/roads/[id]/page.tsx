@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ROUTES, routeById } from '@/lib/routes';
 import { EXPLAIN, HEADLINE, LABEL, parseLevel } from '@/lib/status';
-import { loadMapData } from '@/lib/mapdata';
+import { getHistory, HISTORY_DAYS } from '@/lib/history';
+import { LEVEL_COLOR, loadMapData } from '@/lib/mapdata';
 import { crumbs, jsonLd } from '@/lib/site';
 import { loadSnapshot, pacificTime } from '@/lib/view';
 import { MapView } from '../../map/map-view';
@@ -32,7 +33,7 @@ export default async function RoutePage({ params, searchParams }: Props) {
   if (!routeById(id)) notFound();
   const snap = await loadSnapshot(demo);
   const r = snap.routes.find((x) => x.def.id === id)!;
-  const mapData = await loadMapData(snap, { demo: snap.demo, weather: false });
+  const [mapData, history] = await Promise.all([loadMapData(snap, { demo: snap.demo, weather: false }), snap.demo ? null : getHistory(id)]);
   const q = snap.demo ? '?demo=storm' : '';
   const question = `Are chains required on ${r.def.name} to Big Bear right now?`;
   const answer =
@@ -78,6 +79,31 @@ export default async function RoutePage({ params, searchParams }: Props) {
         <h2>{question}</h2>
         <p className="lede">{answer}</p>
       </section>
+
+      {history && (
+        <section>
+          <h2>Last {HISTORY_DAYS} days</h2>
+          <div
+            className="history"
+            role="img"
+            aria-label={`Chains or closures on ${history.affectedDays} of the last ${history.daysCovered} days`}
+          >
+            {history.spans.map((sp, i) => (
+              <span key={i} style={{ width: `${sp.percent}%`, background: sp.level === 'unknown' ? '#dfe6ec' : LEVEL_COLOR[sp.level] }} />
+            ))}
+          </div>
+          <div className="history-ends">
+            <span>{HISTORY_DAYS} days ago</span>
+            <span>Now</span>
+          </div>
+          <p className="note" style={{ marginTop: 8 }}>
+            {history.affectedDays === 0
+              ? `No chain controls or closures in the last ${history.daysCovered} day${history.daysCovered === 1 ? '' : 's'}.`
+              : `Chains or closures on ${history.affectedDays} of the last ${history.daysCovered} day${history.daysCovered === 1 ? '' : 's'}.`}
+            {history.daysCovered < HISTORY_DAYS && ' The gray part is before this app started keeping a record.'}
+          </p>
+        </section>
+      )}
 
       <section>
         <h2>On the map</h2>
