@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { COMMUNITIES, communityBySlug } from '@/lib/communities';
 import { APPROACHES } from '@/lib/routes';
 import { LABEL, verdict } from '@/lib/status';
+import { getAir } from '@/lib/air';
 import { describeFire, getFires, SAMPLE_FIRE } from '@/lib/fires';
 import { buildToday } from '@/lib/today';
 import { getWeather, STORM_WEATHER } from '@/lib/weather';
@@ -21,12 +22,13 @@ export default async function Home({
   const { demo, c } = await searchParams;
   const picked = communityBySlug(c);
   const community = picked ?? COMMUNITIES[0];
-  const [snap, weather, fireData] = await Promise.all([
+  const [snap, weather, fireData, air] = await Promise.all([
     loadSnapshot(demo),
     demo === 'storm' ? Promise.resolve(STORM_WEATHER) : getWeather(community),
     demo === 'storm' ? Promise.resolve({ ok: true, fires: [SAMPLE_FIRE] }) : getFires(),
+    getAir(),
   ]);
-  const today = buildToday(snap.routes, weather, new Date());
+  const today = buildToday(snap.routes, weather, new Date(), air);
   const fires = fireData.fires;
   const href = (slug?: string) => {
     const params = new URLSearchParams();

@@ -28,6 +28,16 @@ const TABS = [
       </>
     ),
   },
+  {
+    href: '/explore',
+    label: 'Explore',
+    icon: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m15.5 8.5-2 5-5 2 2-5z" />
+      </>
+    ),
+  },
 ];
 
 const ALERTS_TAB = {
@@ -45,7 +55,11 @@ const ALERTS_TAB = {
 export function Nav({ alerts = false }: { alerts?: boolean }) {
   const path = usePathname();
   const tabs = alerts ? [...TABS, ALERTS_TAB] : TABS;
-  const active = (href: string) => (href === '/' ? path === '/' || path.startsWith('/roads') : path.startsWith(href));
+  const active = (href: string): boolean => {
+    if (href === '/') return path === '/' || path.startsWith('/roads');
+    if (href === '/explore') return path.startsWith('/explore') || path.startsWith('/camping');
+    return path.startsWith(href);
+  };
   return (
     <nav className="tabs" aria-label="Sections">
       {tabs.map((t) => (

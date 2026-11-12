@@ -8,6 +8,8 @@ import { getWeather, isFresh } from '@/lib/weather';
 import { getCameras } from '@/lib/cameras';
 import { FIRE_RADIUS_MILES, getFires } from '@/lib/fires';
 import { runProbes } from '@/lib/probes';
+import { getAir } from '@/lib/air';
+import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
 import { ensureEmailTables, subscriberCounts } from '@/lib/subscribers';
 
@@ -16,12 +18,14 @@ export const metadata: Metadata = { title: 'Data check', robots: { index: false 
 
 /** Plain diagnostic page: is the Caltrans feed answering, and which points land on which route? */
 export default async function StatusPage() {
-  const [snap, weather, cams, fireData, probes] = await Promise.all([
+  const [snap, weather, cams, fireData, probes, air, camps] = await Promise.all([
     getSnapshot(),
     getWeather(COMMUNITIES[0]),
     getCameras(),
     getFires(),
     runProbes(),
+    getAir(),
+    getCampgrounds(),
   ]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   let subs: Record<string, number> | null = null;
@@ -106,6 +110,36 @@ export default async function StatusPage() {
             </span>
           </span>
           <span className={`tag ${fireData.ok ? 'tag-open' : 'tag-closed'}`}>{fireData.ok ? 'Working' : 'Failing'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Air quality (AirNow)</span>
+            <span className="row-sub">
+              {!air.configured
+                ? 'Needs AIRNOW_API_KEY.'
+                : air.ok
+                  ? `Now: ${air.now ? `${air.now.category}${air.now.aqi !== null ? `, AQI ${air.now.aqi}` : ''} (${air.now.pollutant || 'no pollutant named'}, ${air.now.area || 'no area named'})` : 'no reading'}. Tomorrow: ${air.tomorrow?.category ?? 'no forecast'}`
+                  : air.error}
+            </span>
+          </span>
+          <span className={`tag ${air.ok ? 'tag-open' : air.configured ? 'tag-closed' : 'tag-unknown'}`}>
+            {air.ok ? 'Working' : air.configured ? 'Failing' : 'Not set up'}
+          </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Campgrounds (Recreation.gov)</span>
+            <span className="row-sub">
+              {!camps.configured
+                ? 'Needs RIDB_API_KEY.'
+                : camps.ok
+                  ? `${camps.campgrounds.length} within 20 miles, ${camps.campgrounds.filter((c) => c.tonight).length} with a forecast: ${camps.campgrounds.slice(0, 6).map((c) => c.name).join(', ')}`
+                  : camps.error}
+            </span>
+          </span>
+          <span className={`tag ${camps.ok && camps.campgrounds.length > 0 ? 'tag-open' : camps.configured ? 'tag-closed' : 'tag-unknown'}`}>
+            {camps.ok ? (camps.campgrounds.length > 0 ? 'Working' : 'None found') : camps.configured ? 'Failing' : 'Not set up'}
+          </span>
         </div>
         <div className="row">
           <span className="row-text">
