@@ -3,10 +3,10 @@ import { getSql } from './db';
 import { type Mail, sendMail, siteUrl } from './mailer';
 import { APPROACHES } from './routes';
 import { HEADLINE, isChains, LABEL, verdict } from './status';
-import { normalizePrefs, wants } from './prefs';
+import { normalizePrefs, type Prefs, SNOW_STEPS, wants, wantsWeather } from './prefs';
 import { ensureEmailTables } from './subscribers';
 import { signLink } from './tokens';
-import type { Weather } from './weather';
+import type { Weather, WeatherAlert } from './weather';
 
 const ZONE = 'America/Los_Angeles';
 /** The morning summary goes out in this window, Pacific time, on days with chains or closures. */
@@ -51,13 +51,52 @@ export function plan(routes: RouteSummary[], newlyChanged: string[], now: Date):
   return { kind: 'closure', key: `closure:${date}:${closed.map((r) => r.def.id).sort().join(',')}`, closed };
 }
 
+/** Weather emails go out between these hours, Pacific time. Mornings belong to the road summary. */
+export const WEATHER_FROM_HOUR = 9;
+export const WEATHER_UNTIL_HOUR = 21;
+
+/** Warnings worth an email: winter weather, wind and flooding. Fire and evacuation notices are left to the agencies. */
+export const isAlertable = (event: string) =>
+  /\b(warning|watch|advisory)\b/i.test(event) && /(winter storm|blizzard|ice storm|winter weather|snow squall|lake effect snow|high wind|wind advisory|flash flood|flood warning|flood watch|extreme cold|cold weather)/i.test(event);
+
+export type WeatherPlan =
+  | { kind: 'snow'; key: string; previousKey: string; bucket: number; inches: number }
+  | { kind: 'warning'; key: string; previousKey: string; alert: WeatherAlert };
+
+const dayBefore = (date: string) => new Date(new Date(`${date}T12:00:00Z`).getTime() - 86_400_000).toISOString().slice(0, 10);
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/**
+ * Weather emails that are due right now. Each has a key for today and the matching key for
+ * yesterday: a storm that lasts several days is announced once, not every day.
+ */
+export function weatherPlans(weather: Weather | null, now: Date): WeatherPlan[] {
+  if (!weather?.ok) return [];
+  const { date, hour } = pacificParts(now);
+  if (hour < WEATHER_FROM_HOUR || hour >= WEATHER_UNTIL_HOUR) return [];
+  const yesterday = dayBefore(date);
+  const out: WeatherPlan[] = [];
+  const inches = weather.snow24hIn ?? 0;
+  for (const bucket of SNOW_STEPS) {
+    if (inches >= bucket) out.push({ kind: 'snow', key: `snow:${date}:${bucket}`, previousKey: `snow:${yesterday}:${bucket}`, bucket, inches });
+  }
+  const seen = new Set<string>();
+  for (const alert of weather.alerts) {
+    const id = slug(alert.event);
+    if (!isAlertable(alert.event) || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ kind: 'warning', key: `warning:${date}:${id}`, previousKey: `warning:${yesterday}:${id}`, alert });
+  }
+  return out;
+}
+
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const COLOR: Record<string, string> = { open: '#0a6b78', r1: '#b86e00', r2: '#b86e00', r3: '#b86e00', closed: '#5a1220', unknown: '#6B7B8C' };
 
 /** Builds one storm-day email. `kind` only changes the subject and the opening line. */
 export function stormMail(
   to: string,
-  kind: 'morning' | 'closure',
+  kind: 'morning' | 'closure' | 'snow' | 'warning',
   routes: RouteSummary[],
   weather: Weather | null,
   now: Date,
@@ -66,6 +105,8 @@ export function stormMail(
   /** Link to this subscriber's settings, and the road ids they chose (empty for all). */
   manageUrl = '',
   roads: string[] = [],
+  /** For snow and warning emails: what the email is about. */
+  about?: { inches?: number; alert?: WeatherAlert },
 ): Mail {
   const site = siteUrl();
   const v = verdict(routes.map((r) => ({ id: r.def.id, name: r.def.name, level: r.level })), APPROACHES);
@@ -73,21 +114,37 @@ export function stormMail(
   // The headline looks at every road, because the easiest way up may be one they did not pick.
   const listed = roads.length > 0 ? routes.filter((r) => roads.includes(r.def.id)) : routes;
   const { long } = pacificParts(now);
-  const subject =
-    kind === 'closure'
-      ? `Big Bear road closed: ${closed.map((r) => r.def.name).join(', ')}`
-      : `Big Bear roads this morning: ${v.headline.charAt(0).toLowerCase()}${v.headline.slice(1)}`;
-  const opening = kind === 'closure' ? `Caltrans has just reported a closure. Here is every road into the valley.` : `Road status for ${long}.`;
+  let subject = `Big Bear roads this morning: ${v.headline.charAt(0).toLowerCase()}${v.headline.slice(1)}`;
+  let opening = `Road status for ${long}.`;
+  let big = v.headline;
+  let detail = v.detail;
+  if (kind === 'closure') {
+    subject = `Big Bear road closed: ${closed.map((r) => r.def.name).join(', ')}`;
+    opening = 'Caltrans has just reported a closure. Here is every road into the valley.';
+  } else if (kind === 'snow') {
+    const n = about?.inches ?? 0;
+    subject = `Snow for Big Bear: ${n} inches forecast in the next 24 hours`;
+    opening = `Snow forecast, ${long}.`;
+    big = `${n} inches of snow forecast`;
+    detail = `The National Weather Service expects about ${n} inches at Big Bear Lake in the next 24 hours. Roads right now: ${v.headline.charAt(0).toLowerCase()}${v.headline.slice(1)}.`;
+  } else if (kind === 'warning') {
+    const event = about?.alert?.event ?? 'Weather warning';
+    subject = `${event} for Big Bear`;
+    opening = `From the National Weather Service, ${long}.`;
+    big = event;
+    detail = `${about?.alert?.headline ? `${about.alert.headline}. ` : ''}Roads right now: ${v.headline.charAt(0).toLowerCase()}${v.headline.slice(1)}.`.replace(/\.\. /g, '. ');
+  }
   const snow =
     weather?.ok && weather.snow24hIn !== null && weather.snow24hIn >= 0.1 ? `Snow forecast for the next 24 hours: ${weather.snow24hIn} inches.` : '';
   const alert = weather?.ok && weather.alerts[0] ? `${weather.alerts[0].event} in effect.` : '';
-  const extra = [alert, snow].filter(Boolean).join(' ');
+  // A snow or warning email already says its own news in the headline.
+  const extra = [kind === 'warning' ? '' : alert, kind === 'snow' ? '' : snow].filter(Boolean).join(' ');
 
   const text = [
     opening,
     '',
-    v.headline,
-    v.detail,
+    big,
+    detail,
     '',
     ...listed.map((r) => `${r.def.name} (${r.def.sub}): ${HEADLINE[r.level]}`),
     ...(extra ? ['', extra] : []),
@@ -110,8 +167,8 @@ export function stormMail(
 <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:14px;padding:24px">
 <p style="margin:0 0 4px;font-size:20px;font-weight:800">Live Big Bear</p>
 <p style="margin:0 0 16px;font-size:14px;color:#4A5B6C">${esc(opening)}</p>
-<p style="margin:0 0 4px;font-size:22px;font-weight:800;line-height:1.25">${esc(v.headline)}</p>
-<p style="margin:0 0 16px;font-size:16px;line-height:1.5">${esc(v.detail)}</p>
+<p style="margin:0 0 4px;font-size:22px;font-weight:800;line-height:1.25">${esc(big)}</p>
+<p style="margin:0 0 16px;font-size:16px;line-height:1.5">${esc(detail)}</p>
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">${rows}</table>
 ${extra ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.5">${esc(extra)}</p>` : ''}
 <p style="margin:20px 0 0"><a href="${site}/" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:12px">See live status and cameras</a></p>
@@ -151,6 +208,42 @@ export interface SendResult {
  * Sends the planned email to every confirmed subscriber, once. The send is claimed in the
  * database first, so two overlapping runs cannot both send it.
  */
+type Person = { id: string; email: string; prefs: Prefs };
+
+async function deliver(
+  key: string,
+  kind: 'morning' | 'closure' | 'snow' | 'warning',
+  people: Person[],
+  build: (p: Person, unsub: string, oneClick: string, manage: string) => Mail,
+  now: Date,
+  send: (mail: Mail) => Promise<void>,
+): Promise<SendResult> {
+  const sql = getSql();
+  // Claim the send first, so two overlapping runs cannot both send it.
+  const claimed = await sql`INSERT INTO email_sends (key, kind) VALUES (${key}, ${kind}) ON CONFLICT (key) DO NOTHING RETURNING key`;
+  if (claimed.length === 0) return { sent: 0, failed: 0, skipped: 'Already sent.' };
+  const site = siteUrl();
+  let sent = 0;
+  let failed = 0;
+  // A few at a time keeps well under Amazon's per-second limit.
+  for (let i = 0; i < people.length; i += 5) {
+    const results = await Promise.allSettled(
+      people.slice(i, i + 5).map((s) => {
+        const token = encodeURIComponent(signLink('unsub', s.id, LINK_TTL_SECONDS, now.getTime()));
+        const manage = encodeURIComponent(signLink('manage', s.id, LINK_TTL_SECONDS, now.getTime()));
+        return send(build(s, `${site}/alerts/unsubscribe?token=${token}`, `${site}/api/subscribe/unsubscribe?token=${token}`, `${site}/alerts/manage?token=${manage}`));
+      }),
+    );
+    for (const r of results) r.status === 'fulfilled' ? sent++ : failed++;
+  }
+  await sql`UPDATE email_sends SET sent = ${sent}, failed = ${failed} WHERE key = ${key}`;
+  return { sent, failed };
+}
+
+/**
+ * Sends whatever is due to the confirmed subscribers who asked for it, once each:
+ * the road email (morning summary or closure alert) and any snow or warning emails.
+ */
 export async function runStormEmails(
   routes: RouteSummary[],
   newlyChanged: string[],
@@ -160,48 +253,44 @@ export async function runStormEmails(
 ): Promise<SendResult> {
   if (process.env.STORM_EMAILS === 'off') return { sent: 0, failed: 0, skipped: 'Storm emails are switched off.' };
   const p = plan(routes, newlyChanged, now);
-  if (p.kind === 'none') return { sent: 0, failed: 0, skipped: p.why };
+  const wx = weatherPlans(weather, now);
+  if (p.kind === 'none' && wx.length === 0) return { sent: 0, failed: 0, skipped: p.why };
   await Promise.all([ensureEmailTables(), ensureSendLog()]);
   const sql = getSql();
-  const claimed = await sql`INSERT INTO email_sends (key, kind) VALUES (${p.key}, ${p.kind}) ON CONFLICT (key) DO NOTHING RETURNING key`;
-  if (claimed.length === 0) return { sent: 0, failed: 0, skipped: 'Already sent.' };
-
-  const everyone = await sql`SELECT id, email, prefs FROM email_subscribers WHERE status = 'confirmed' ORDER BY id`;
+  const everyone: Person[] = (await sql`SELECT id, email, prefs FROM email_subscribers WHERE status = 'confirmed' ORDER BY id`).map((s) => ({
+    id: String(s.id),
+    email: String(s.email),
+    prefs: normalizePrefs(s.prefs),
+  }));
   const { date } = pacificParts(now);
   const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
-  const about = (p.kind === 'closure' ? p.closed : affected(routes)).map((r) => r.def.id);
-  const people = everyone
-    .map((s) => ({ id: String(s.id), email: String(s.email), prefs: normalizePrefs(s.prefs) }))
-    .filter((s) => wants(s.prefs, p.kind, about, date, weekday));
-  const site = siteUrl();
-  let sent = 0;
-  let failed = 0;
-  // A few at a time keeps well under Amazon's per-second limit.
-  for (let i = 0; i < people.length; i += 5) {
-    const batch = people.slice(i, i + 5);
-    const results = await Promise.allSettled(
-      batch.map((s) => {
-        const token = encodeURIComponent(signLink('unsub', s.id, LINK_TTL_SECONDS, now.getTime()));
-        const manage = encodeURIComponent(signLink('manage', s.id, LINK_TTL_SECONDS, now.getTime()));
-        return send(
-          stormMail(
-            s.email,
-            p.kind,
-            routes,
-            weather,
-            now,
-            `${site}/alerts/unsubscribe?token=${token}`,
-            `${site}/api/subscribe/unsubscribe?token=${token}`,
-            `${site}/alerts/manage?token=${manage}`,
-            s.prefs.roads,
-          ),
-        );
-      }),
-    );
-    for (const r of results) r.status === 'fulfilled' ? sent++ : failed++;
+  const total: SendResult = { sent: 0, failed: 0 };
+  const add = (r: SendResult) => {
+    total.sent += r.sent;
+    total.failed += r.failed;
+    if (r.skipped && total.sent + total.failed === 0) total.skipped = r.skipped;
+    else delete total.skipped;
+  };
+
+  if (p.kind !== 'none') {
+    const roadKind = p.kind;
+    const about = (p.kind === 'closure' ? p.closed : affected(routes)).map((r) => r.def.id);
+    const people = everyone.filter((s) => wants(s.prefs, roadKind, about, date, weekday));
+    add(await deliver(p.key, roadKind, people, (s, unsub, one, manage) => stormMail(s.email, roadKind, routes, weather, now, unsub, one, manage, s.prefs.roads), now, send));
   }
-  await sql`UPDATE email_sends SET sent = ${sent}, failed = ${failed} WHERE key = ${p.key}`;
-  return { sent, failed };
+
+  for (const w of wx) {
+    // Announced yesterday already: a storm lasting several days is not repeated daily.
+    const before = await sql`SELECT 1 FROM email_sends WHERE key = ${w.previousKey}`;
+    if (before.length > 0) {
+      await sql`INSERT INTO email_sends (key, kind) VALUES (${w.key}, ${w.kind}) ON CONFLICT (key) DO NOTHING`;
+      continue;
+    }
+    const people = everyone.filter((s) => wantsWeather(s.prefs, w.kind, w.kind === 'snow' ? w.bucket : 0, date, weekday));
+    const about = w.kind === 'snow' ? { inches: w.inches } : { alert: w.alert };
+    add(await deliver(w.key, w.kind, people, (s, unsub, one, manage) => stormMail(s.email, w.kind, routes, weather, now, unsub, one, manage, s.prefs.roads, about), now, send));
+  }
+  return total;
 }
 
 /** The most recent sends, for the status page. */
