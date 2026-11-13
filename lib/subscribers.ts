@@ -22,6 +22,8 @@ export function ensureEmailTables(): Promise<void> {
         at TIMESTAMPTZ NOT NULL DEFAULT now()
       )`;
     await sql`CREATE INDEX IF NOT EXISTS email_rate_key_at ON email_rate (key, at)`;
+    await sql`ALTER TABLE email_subscribers ADD COLUMN IF NOT EXISTS prefs JSONB NOT NULL DEFAULT '{}'::jsonb`;
+    await sql`ALTER TABLE email_subscribers ADD COLUMN IF NOT EXISTS last_manage_sent_at TIMESTAMPTZ`;
   })().catch((e) => {
     ready = null;
     throw e;
@@ -51,6 +53,8 @@ export async function allow(key: string, limit: number, minutes: number): Promis
 export interface SignupResult {
   /** Subscriber id to email a confirmation link to, or null when no email should go out. */
   sendTo: string | null;
+  /** Already confirmed: the id to email a "manage my alerts" link to, at most once per 15 minutes. */
+  manageFor?: string;
 }
 
 /**
@@ -70,7 +74,15 @@ export async function requestSignup(email: string): Promise<SignupResult> {
     return { sendTo: made.length ? String(made[0].id) : null };
   }
   const row = found[0];
-  if (row.status === 'confirmed' || row.status === 'suppressed' || row.recent) return { sendTo: null };
+  if (row.status === 'confirmed') {
+    // Someone already on the list typing their address again most likely wants their settings.
+    const due = await sql`
+      UPDATE email_subscribers SET last_manage_sent_at = now()
+      WHERE id = ${String(row.id)}::bigint AND (last_manage_sent_at IS NULL OR last_manage_sent_at < now() - interval '15 minutes')
+      RETURNING id`;
+    return due.length ? { sendTo: null, manageFor: String(row.id) } : { sendTo: null };
+  }
+  if (row.status === 'suppressed' || row.recent) return { sendTo: null };
   await sql`
     UPDATE email_subscribers SET status = 'pending', last_confirm_sent_at = now()
     WHERE id = ${String(row.id)}::bigint`;
@@ -113,4 +125,17 @@ export async function purgeStale(): Promise<void> {
 export async function subscriberCounts(): Promise<Record<string, number>> {
   const rows = await getSql()`SELECT status, count(*)::int AS n FROM email_subscribers GROUP BY status`;
   return Object.fromEntries(rows.map((r) => [r.status, r.n]));
+}
+
+/** One confirmed subscriber's address and settings, or null if they are not on the list. */
+export async function subscriberById(id: string): Promise<{ id: string; email: string; prefs: unknown } | null> {
+  const rows = await getSql()`SELECT id, email, prefs FROM email_subscribers WHERE id = ${id}::bigint AND status = 'confirmed'`;
+  return rows[0] ? { id: String(rows[0].id), email: String(rows[0].email), prefs: rows[0].prefs } : null;
+}
+
+export async function savePrefs(id: string, prefs: object): Promise<boolean> {
+  const rows = await getSql()`
+    UPDATE email_subscribers SET prefs = ${JSON.stringify(prefs)}::jsonb
+    WHERE id = ${id}::bigint AND status = 'confirmed' RETURNING id`;
+  return rows.length > 0;
 }

@@ -3,6 +3,7 @@ import { getSql } from './db';
 import { type Mail, sendMail, siteUrl } from './mailer';
 import { APPROACHES } from './routes';
 import { HEADLINE, isChains, LABEL, verdict } from './status';
+import { normalizePrefs, wants } from './prefs';
 import { ensureEmailTables } from './subscribers';
 import { signLink } from './tokens';
 import type { Weather } from './weather';
@@ -14,8 +15,8 @@ export const MORNING_UNTIL_HOUR = 9;
 /** Closure alerts are held overnight so nobody's phone buzzes at 2 AM. */
 export const QUIET_FROM_HOUR = 21;
 export const QUIET_UNTIL_HOUR = 5;
-/** Unsubscribe links in storm emails keep working for a year. */
-const UNSUB_TTL_SECONDS = 60 * 60 * 24 * 365;
+/** Unsubscribe and settings links in storm emails keep working for a year. */
+const LINK_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 export function pacificParts(now: Date): { date: string; hour: number; long: string } {
   const date = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE }).format(now);
@@ -62,10 +63,15 @@ export function stormMail(
   now: Date,
   unsubscribeUrl: string,
   oneClickUrl = unsubscribeUrl,
+  /** Link to this subscriber's settings, and the road ids they chose (empty for all). */
+  manageUrl = '',
+  roads: string[] = [],
 ): Mail {
   const site = siteUrl();
   const v = verdict(routes.map((r) => ({ id: r.def.id, name: r.def.name, level: r.level })), APPROACHES);
   const closed = routes.filter((r) => r.level === 'closed');
+  // The headline looks at every road, because the easiest way up may be one they did not pick.
+  const listed = roads.length > 0 ? routes.filter((r) => roads.includes(r.def.id)) : routes;
   const { long } = pacificParts(now);
   const subject =
     kind === 'closure'
@@ -83,17 +89,18 @@ export function stormMail(
     v.headline,
     v.detail,
     '',
-    ...routes.map((r) => `${r.def.name} (${r.def.sub}): ${HEADLINE[r.level]}`),
+    ...listed.map((r) => `${r.def.name} (${r.def.sub}): ${HEADLINE[r.level]}`),
     ...(extra ? ['', extra] : []),
     '',
     `Live status, map and cameras: ${site}/`,
     '',
     'Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.',
     '',
+    ...(manageUrl ? [`Choose your roads and days, or pause: ${manageUrl}`] : []),
     `Stop these emails: ${unsubscribeUrl}`,
   ].join('\n');
 
-  const rows = routes
+  const rows = listed
     .map(
       (r) =>
         `<tr><td style="padding:10px 0;border-top:1px solid #E3E9EF"><div style="font-size:16px;font-weight:700">${esc(r.def.name)}</div><div style="font-size:13px;color:#4A5B6C">${esc(r.def.sub)}</div></td><td style="padding:10px 0;border-top:1px solid #E3E9EF;text-align:right;white-space:nowrap"><span style="display:inline-block;background:${COLOR[r.level]};color:#ffffff;font-size:13px;font-weight:700;padding:5px 10px;border-radius:8px">${esc(LABEL[r.level])}</span></td></tr>`,
@@ -108,7 +115,7 @@ export function stormMail(
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">${rows}</table>
 ${extra ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.5">${esc(extra)}</p>` : ''}
 <p style="margin:20px 0 0"><a href="${site}/" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:12px">See live status and cameras</a></p>
-<p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#4A5B6C">Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.<br>You are getting this because you signed up at livebigbear.com. <a href="${unsubscribeUrl}" style="color:#4A5B6C">Unsubscribe</a></p>
+<p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#4A5B6C">Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.<br>You are getting this because you signed up at livebigbear.com. ${manageUrl ? `<a href="${manageUrl}" style="color:#4A5B6C">Choose your roads and days</a> · ` : ''}<a href="${unsubscribeUrl}" style="color:#4A5B6C">Unsubscribe</a></p>
 </div></body></html>`;
   return { to, subject, text, html, unsubscribeUrl: oneClickUrl };
 }
@@ -159,7 +166,13 @@ export async function runStormEmails(
   const claimed = await sql`INSERT INTO email_sends (key, kind) VALUES (${p.key}, ${p.kind}) ON CONFLICT (key) DO NOTHING RETURNING key`;
   if (claimed.length === 0) return { sent: 0, failed: 0, skipped: 'Already sent.' };
 
-  const people = await sql`SELECT id, email FROM email_subscribers WHERE status = 'confirmed' ORDER BY id`;
+  const everyone = await sql`SELECT id, email, prefs FROM email_subscribers WHERE status = 'confirmed' ORDER BY id`;
+  const { date } = pacificParts(now);
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+  const about = (p.kind === 'closure' ? p.closed : affected(routes)).map((r) => r.def.id);
+  const people = everyone
+    .map((s) => ({ id: String(s.id), email: String(s.email), prefs: normalizePrefs(s.prefs) }))
+    .filter((s) => wants(s.prefs, p.kind, about, date, weekday));
   const site = siteUrl();
   let sent = 0;
   let failed = 0;
@@ -168,8 +181,21 @@ export async function runStormEmails(
     const batch = people.slice(i, i + 5);
     const results = await Promise.allSettled(
       batch.map((s) => {
-        const token = encodeURIComponent(signLink('unsub', String(s.id), UNSUB_TTL_SECONDS, now.getTime()));
-        return send(stormMail(String(s.email), p.kind, routes, weather, now, `${site}/alerts/unsubscribe?token=${token}`, `${site}/api/subscribe/unsubscribe?token=${token}`));
+        const token = encodeURIComponent(signLink('unsub', s.id, LINK_TTL_SECONDS, now.getTime()));
+        const manage = encodeURIComponent(signLink('manage', s.id, LINK_TTL_SECONDS, now.getTime()));
+        return send(
+          stormMail(
+            s.email,
+            p.kind,
+            routes,
+            weather,
+            now,
+            `${site}/alerts/unsubscribe?token=${token}`,
+            `${site}/api/subscribe/unsubscribe?token=${token}`,
+            `${site}/alerts/manage?token=${manage}`,
+            s.prefs.roads,
+          ),
+        );
       }),
     );
     for (const r of results) r.status === 'fulfilled' ? sent++ : failed++;

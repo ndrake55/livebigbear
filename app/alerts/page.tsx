@@ -32,6 +32,10 @@ export default function AlertsPage() {
           <p className="note">
             We email a link to confirm it is really you. No spam, and every email has a one-tap unsubscribe.
           </p>
+          <p className="note">
+            Already signed up? Enter your address again and we will email a link to your settings, where you can
+            choose your roads and days or pause your emails.
+          </p>
         </section>
       ) : (
         <div className="notice">Email signup is coming soon.</div>
@@ -50,6 +54,12 @@ export default function AlertsPage() {
             <span className="row-text">
               <span className="row-name">Major closures</span>
               <span className="row-sub">When a road into the valley closes.</span>
+            </span>
+          </div>
+          <div className="row row-static">
+            <span className="row-text">
+              <span className="row-name">Your roads, your days</span>
+              <span className="row-sub">Pick the roads you drive and the days you care about, or pause until your next trip.</span>
             </span>
           </div>
           <div className="row row-static">

@@ -80,3 +80,22 @@ export function confirmationMail(to: string, confirmUrl: string): Mail {
 </div></body></html>`;
   return { to, subject: 'Confirm your Live Big Bear emails', text, html };
 }
+
+export function manageMail(to: string, manageUrl: string): Mail {
+  const text = [
+    'Here is the link to your Live Big Bear alert settings (it works for 24 hours):',
+    manageUrl,
+    '',
+    'Choose which roads and which days you hear about, pause your emails, or unsubscribe.',
+    '',
+    'If you did not ask for this, ignore this email. Nothing has changed.',
+  ].join('\n');
+  const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#F2F5F8;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#12202E">
+<div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:14px;padding:24px">
+<p style="margin:0 0 6px;font-size:20px;font-weight:800">Live Big Bear</p>
+<p style="margin:0 0 18px;font-size:16px;line-height:1.5">Here is the link to your alert settings. Choose which roads and which days you hear about, pause your emails, or unsubscribe.</p>
+<p style="margin:0 0 18px"><a href="${manageUrl}" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:12px">Manage my alerts</a></p>
+<p style="margin:0;font-size:13px;line-height:1.5;color:#4A5B6C">The link works for 24 hours. If you did not ask for this, ignore this email. Nothing has changed.</p>
+</div></body></html>`;
+  return { to, subject: 'Your Live Big Bear alert settings', text, html };
+}

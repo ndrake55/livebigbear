@@ -21,7 +21,7 @@ function same(a: string, b: string): boolean {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
-export type LinkKind = 'confirm' | 'unsub';
+export type LinkKind = 'confirm' | 'unsub' | 'manage';
 
 /** A signed link token for one subscriber. `ttlSeconds` of 0 means it never expires. */
 export function signLink(kind: LinkKind, id: string, ttlSeconds: number, now = Date.now()): string {

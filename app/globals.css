@@ -196,3 +196,21 @@ img.panel-media { max-height: 240px; object-fit: contain; }
 .history { display: flex; height: 22px; border-radius: 8px; overflow: hidden; background: #dfe6ec; }
 .history span { display: block; height: 100%; min-width: 1px; }
 .history-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Alert settings */
+.prefs { display: grid; gap: 16px; }
+.prefs fieldset { border: 0; margin: 0; min-width: 0; }
+.prefs legend { font-size: 17px; font-weight: 700; padding: 0; margin-bottom: 8px; float: left; width: 100%; }
+.prefs legend + * { clear: both; }
+.check { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; cursor: pointer; min-height: 48px; }
+.check input { width: 22px; height: 22px; margin: 2px 0 0; flex: none; accent-color: var(--accent); }
+.check span { display: flex; flex-direction: column; gap: 2px; }
+.check strong { font-size: 16px; font-weight: 600; }
+.check small { font-size: 13px; color: var(--muted); }
+.days { display: flex; flex-wrap: wrap; gap: 8px; }
+.day { position: relative; }
+.day input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.day span { display: flex; align-items: center; justify-content: center; min-width: 52px; min-height: 44px; padding: 0 10px; border-radius: 22px; border: 1px solid #c5cfd9; background: #fff; font-size: 14px; font-weight: 600; }
+.day input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+.day input:focus-visible + span { outline: 3px solid #9bbcf0; outline-offset: 1px; }
+.notice-good { background: #d3ecef; color: #0a4650; }

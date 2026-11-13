@@ -1,5 +1,5 @@
 import { canReceiveMail, isDisposable, normalizeEmail } from './email-check';
-import { confirmationMail, isMailConfigured, sendMail, siteUrl, type Mail } from './mailer';
+import { confirmationMail, isMailConfigured, manageMail, sendMail, siteUrl, type Mail } from './mailer';
 import { allow, ensureEmailTables, forgetSendAttempt, requestSignup } from './subscribers';
 import { fingerprint, formAge, signLink } from './tokens';
 
@@ -18,7 +18,7 @@ export interface SignupOutcome {
   message: string;
 }
 
-const SENT = 'Check your inbox for a link to confirm. It can take a minute, and may land in spam.';
+const SENT = 'Check your inbox for a link. It can take a minute, and may land in spam.';
 const say = (status: number, ok: boolean, message: string): SignupOutcome => ({ status, ok, message });
 
 export const MIN_FORM_MS = 2000;
@@ -26,6 +26,7 @@ export const MAX_FORM_MS = 2 * 60 * 60 * 1000;
 const PER_VISITOR_PER_HOUR = 5;
 const SITE_WIDE_PER_HOUR = 200;
 const CONFIRM_TTL_SECONDS = 48 * 3600;
+export const MANAGE_TTL_SECONDS = 24 * 3600;
 
 /**
  * Handle one signup attempt. The answer never reveals whether an address is already on the list:
@@ -59,8 +60,17 @@ export async function handleSignup(
   }
   if (!(await mxOk(email))) return say(400, false, 'That email domain cannot receive mail. Check for a typo.');
 
-  const { sendTo } = await requestSignup(email);
-  if (sendTo === null) return say(200, true, SENT); // already confirmed, blocked, or emailed minutes ago
+  const { sendTo, manageFor } = await requestSignup(email);
+  if (manageFor) {
+    // Already on the list: email the link to their settings. The reply on screen is the same
+    // as for a new signup, so it never reveals who is subscribed.
+    if (await allow('all-confirmations', SITE_WIDE_PER_HOUR, 60)) {
+      const link = `${siteUrl()}/alerts/manage?token=${encodeURIComponent(signLink('manage', manageFor, MANAGE_TTL_SECONDS, now))}`;
+      await send(manageMail(email, link)).catch(() => {});
+    }
+    return say(200, true, SENT);
+  }
+  if (sendTo === null) return say(200, true, SENT); // blocked, or emailed minutes ago
 
   // A ceiling on confirmation emails across the whole site, in case of an attack from many connections.
   if (!(await allow('all-confirmations', SITE_WIDE_PER_HOUR, 60))) {
