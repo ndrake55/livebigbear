@@ -52,6 +52,7 @@ export default async function StatusPage() {
       subsError = e instanceof Error ? e.message : 'database error';
     }
   }
+  const eventsKey = process.env.SES_EVENTS_KEY ?? '';
   const stormPlan = plan(snap.routes, [], new Date());
   const sends = hasDb() ? await recentSends().catch(() => []) : [];
   const obsFresh = isFresh(weather.observation, new Date());
@@ -195,6 +196,23 @@ export default async function StatusPage() {
             <span className="row-sub">{roadLines.text}</span>
           </span>
           <span className={`tag ${roadLines.ok ? 'tag-open' : 'tag-closed'}`}>{roadLines.ok ? 'Working' : 'Failing'}</span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Bounce and complaint reporting</span>
+            <span className="row-sub">
+              {eventsKey === ''
+                ? 'SES_EVENTS_KEY is not set in this deployment. Add it in Vercel and redeploy, then ask Amazon to send the confirmation again.'
+                : `SES_EVENTS_KEY is set (${eventsKey.length} characters). ${
+                    /^[A-Za-z0-9_-]+$/.test(eventsKey)
+                      ? 'It is safe to put in a web address.'
+                      : 'It contains symbols that break inside a web address. Use only letters, numbers, dashes and underscores.'
+                  } Addresses stopped so far: ${subs?.suppressed ?? 0}.`}
+            </span>
+          </span>
+          <span className={`tag ${eventsKey && /^[A-Za-z0-9_-]+$/.test(eventsKey) ? 'tag-open' : 'tag-unknown'}`}>
+            {eventsKey && /^[A-Za-z0-9_-]+$/.test(eventsKey) ? 'Ready' : 'Needs attention'}
+          </span>
         </div>
         <div className="row">
           <span className="row-text">
