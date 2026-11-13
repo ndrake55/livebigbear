@@ -4,6 +4,7 @@ import { DAY_NAMES, describePrefs, normalizePrefs, PRESETS, type Prefs } from '@
 import { ROUTES } from '@/lib/routes';
 import { ensureEmailTables, subscriberById } from '@/lib/subscribers';
 import { signLink, verifyLink } from '@/lib/tokens';
+import { RememberDevice } from '../remember';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Manage my alerts', robots: { index: false } };
@@ -63,6 +64,7 @@ export default async function ManagePage({
           Live Big Bear
         </Link>
       </header>
+      <RememberDevice token={token} />
       <div className="title">
         <h1>Manage my alerts</h1>
         <p>Settings for {mask(person.email)}</p>

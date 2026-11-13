@@ -22,7 +22,7 @@ export default async function ConfirmPage({
   let text = 'Confirmation links work for 48 hours. Sign up again to get a new one.';
   if (state === 'done') {
     title = 'You are signed up';
-    text = 'We will email you on storm days. Every email has an unsubscribe link.';
+    text = 'We will email you on storm days. Next, choose the roads and days you care about.';
   } else if (state === 'error') {
     title = 'Something went wrong';
     text = 'Please open the link in your email again in a minute.';
@@ -50,8 +50,8 @@ export default async function ConfirmPage({
           </button>
         </form>
       ) : (
-        <Link className="button" href={state === 'done' ? '/' : '/alerts'}>
-          {state === 'done' ? 'See road conditions' : 'Back to signup'}
+        <Link className="button" href="/alerts">
+          {state === 'done' ? 'Choose my roads and days' : 'Back to signup'}
         </Link>
       )}
     </div>

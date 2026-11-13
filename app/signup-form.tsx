@@ -4,8 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 
 type State = { kind: 'idle' | 'sending' | 'done' | 'error'; message?: string };
 
-/** Email signup. The server does the real checking; this just collects the address. */
-export function SignupForm() {
+/**
+ * Email signup. The server does the real checking; this just collects the address.
+ * In "manage" mode the same request is worded for people who are already signed up: the server
+ * emails them a link to their settings.
+ */
+export function SignupForm({ mode = 'signup' }: { mode?: 'signup' | 'manage' }) {
+  const id = mode === 'manage' ? 'manage' : 'signup';
   const [state, setState] = useState<State>({ kind: 'idle' });
   const token = useRef<{ t: string; at: number } | null>(null);
 
@@ -43,7 +48,7 @@ export function SignupForm() {
       const out = (await res.json()) as { ok?: boolean; message?: string };
       if (out.ok) {
         form.reset();
-        setState({ kind: 'done', message: out.message });
+        setState({ kind: 'done', message: mode === 'manage' ? 'If that address is signed up, a link to your settings is on its way. Check your inbox, and spam.' : out.message });
       } else {
         setState({ kind: 'error', message: out.message ?? 'Please try again.' });
       }
@@ -54,12 +59,12 @@ export function SignupForm() {
 
   return (
     <form className="signup" onSubmit={submit} noValidate>
-      <label className="signup-label" htmlFor="signup-email">
+      <label className="signup-label" htmlFor={`${id}-email`}>
         Email address
       </label>
-      <div className="signup-row">
+      <div className={`signup-row${mode === 'manage' ? ' signup-row-stack' : ''}`}>
         <input
-          id="signup-email"
+          id={`${id}-email`}
           className="signup-input"
           type="email"
           name="email"
@@ -70,13 +75,13 @@ export function SignupForm() {
           maxLength={254}
         />
         <button className="signup-button" type="submit" disabled={state.kind === 'sending'}>
-          {state.kind === 'sending' ? 'Sending…' : 'Sign up'}
+          {state.kind === 'sending' ? 'Sending…' : mode === 'manage' ? 'Email me my link' : 'Sign up'}
         </button>
       </div>
       {/* A trap for bots. People never see or reach this field. */}
       <div className="signup-trap" aria-hidden="true">
-        <label htmlFor="signup-company">Company</label>
-        <input id="signup-company" type="text" name="company" tabIndex={-1} autoComplete="off" />
+        <label htmlFor={`${id}-company`}>Company</label>
+        <input id={`${id}-company`} type="text" name="company" tabIndex={-1} autoComplete="off" />
       </div>
       <p className={`signup-status signup-${state.kind}`} role="status" aria-live="polite">
         {state.message ?? ''}
