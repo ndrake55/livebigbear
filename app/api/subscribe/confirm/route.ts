@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { REMEMBER_COOKIE, rememberOptions, rememberValue } from '@/lib/remember';
 import { confirmSubscriber, ensureEmailTables } from '@/lib/subscribers';
 import { verifyLink } from '@/lib/tokens';
 
@@ -12,7 +13,11 @@ export async function POST(request: Request) {
     const id = verifyLink('confirm', String(form.get('token') ?? ''));
     if (!id) return back('state=expired');
     await ensureEmailTables();
-    return back((await confirmSubscriber(id)) ? 'state=done' : 'state=expired');
+    if (!(await confirmSubscriber(id))) return back('state=expired');
+    // Remember them on this device, so the Alerts page can take them straight to their settings.
+    const res = back('state=done');
+    res.cookies.set(REMEMBER_COOKIE, rememberValue(id), rememberOptions);
+    return res;
   } catch {
     return back('state=error');
   }

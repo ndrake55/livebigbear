@@ -1,15 +1,9 @@
 import { classify18 } from './routes';
 
-// Road shapes come from OpenStreetMap through the public Overpass service.
-// They change rarely, so the result is cached for a week (see app/api/road-lines).
+// Road shapes come from OpenStreetMap. The result of the query below is stored in
+// lib/road-lines.json. To refresh it, run the query at overpass-turbo.eu, export the raw data
+// and pass it through buildLines.
 export const OVERPASS_URL = process.env.OVERPASS_URL ?? 'https://overpass-api.de/api/interpreter';
-/** Public copies of the same service, tried in turn when one is busy or refuses the request. */
-const OVERPASS_SERVERS = [
-  OVERPASS_URL,
-  'https://overpass.private.coffee/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-];
-
 /** South, west, north, east: the valley and every road up to it, stopping short of Apple Valley. */
 const BOX = '34.0,-117.45,34.47,-116.6';
 
@@ -89,34 +83,4 @@ export function buildLines(json: unknown): RoadLines {
     }
   }
   return out;
-}
-
-async function askOverpass(url: string): Promise<RoadLines> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
-      'User-Agent': `LiveBigBear/0.9 (livebigbear.com, ${process.env.NWS_CONTACT_EMAIL ?? 'no contact set'})`,
-    },
-    body: `data=${encodeURIComponent(OVERPASS_QUERY)}`,
-    signal: AbortSignal.timeout(12000),
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`answered ${res.status}`);
-  const lines = buildLines(await res.json());
-  if (Object.keys(lines).length === 0) throw new Error('returned no roads');
-  return lines;
-}
-
-export async function fetchRoadLines(): Promise<RoadLines> {
-  const problems: string[] = [];
-  for (const url of OVERPASS_SERVERS) {
-    try {
-      return await askOverpass(url);
-    } catch (e) {
-      problems.push(`${new URL(url).host} ${e instanceof Error ? e.message : 'failed'}`);
-    }
-  }
-  throw new Error(`No road shapes: ${problems.join('; ')}`);
 }

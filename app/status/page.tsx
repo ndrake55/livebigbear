@@ -12,7 +12,7 @@ import { getTrails } from '@/lib/trails';
 import { getOffRoad } from '@/lib/offroad';
 import { getLake } from '@/lib/lake';
 import { getListed } from '@/lib/trailheads';
-import { fetchRoadLines } from '@/lib/geometry';
+import storedLines from '@/lib/road-lines.json';
 import { plan, recentSends } from '@/lib/storm-mail';
 import { getAir } from '@/lib/air';
 import { getCampgrounds } from '@/lib/camping';
@@ -36,10 +36,7 @@ export default async function StatusPage() {
     getOffRoad(),
     getLake(),
     getListed(),
-    fetchRoadLines().then(
-      (l) => ({ ok: true, text: Object.entries(l).map(([k, v]) => `${k}: ${v.length} pieces`).join(', ') }),
-      (e) => ({ ok: false, text: e instanceof Error ? e.message : 'failed' }),
-    ),
+    Promise.resolve({ ok: Object.keys(storedLines).length > 0, text: `Stored in the app: ${Object.entries(storedLines).map(([k, v]) => `${k} ${(v as unknown[]).length} pieces`).join(', ')}` }),
   ]);
   const caltransCams = cams.cameras.filter((c) => c.credit === 'Caltrans');
   let subs: Record<string, number> | null = null;

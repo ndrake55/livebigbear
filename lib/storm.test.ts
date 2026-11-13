@@ -173,3 +173,33 @@ describe('alert settings', () => {
     expect(out).toHaveLength(1);
   });
 });
+
+import { rememberedId, rememberValue } from './remember';
+import storedLines from './road-lines.json';
+
+describe('remembering a subscriber on their device', () => {
+  it('accepts only a genuine, unexpired cookie', () => {
+    const now = Date.now();
+    const value = rememberValue('42', now);
+    expect(rememberedId(value, now)).toBe('42');
+    expect(rememberedId(value, now + 31 * 86_400_000)).toBeNull();
+    expect(rememberedId(value.replace(/^42/, '43'), now)).toBeNull();
+    expect(rememberedId(undefined)).toBeNull();
+    expect(rememberedId('garbage')).toBeNull();
+  });
+});
+
+describe('stored road shapes', () => {
+  it('cover every road and stay inside the area', () => {
+    const lines = storedLines as Record<string, number[][][]>;
+    for (const id of ['330', '38', '18-crestline', '18-front', '18-back']) expect(lines[id]?.length).toBeGreaterThan(10);
+    for (const piece of Object.values(lines).flat()) {
+      for (const [lon, lat] of piece) {
+        expect(lon).toBeGreaterThan(-117.5);
+        expect(lon).toBeLessThan(-116.5);
+        expect(lat).toBeGreaterThan(33.9);
+        expect(lat).toBeLessThan(34.5);
+      }
+    }
+  });
+});
