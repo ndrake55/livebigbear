@@ -97,15 +97,20 @@ describe('signup', () => {
     expect(await subscriberCounts()).toEqual({ confirmed: 1 });
   });
 
-  it('will not email the same address again within 15 minutes, or once confirmed', async () => {
+  it('will not send a second confirmation within 15 minutes, or any once confirmed', async () => {
     await attempt();
     const again = await attempt({ ip: '9.9.9.9' });
     expect(again).toMatchObject({ status: 200, ok: true }); // same reply, so nothing is revealed
     expect(sent).toHaveLength(1);
     await confirmSubscriber('1');
     await pg.exec("UPDATE email_subscribers SET last_confirm_sent_at = now() - interval '1 hour'");
+    // Once confirmed, typing the address again emails a link to their settings, never a new
+    // confirmation, and at most once in 15 minutes.
     await attempt({ ip: '8.8.8.8' });
-    expect(sent).toHaveLength(1);
+    expect(sent).toHaveLength(2);
+    expect(sent[1].subject).toBe('Your Live Big Bear alert settings');
+    await attempt({ ip: '7.7.7.7' });
+    expect(sent).toHaveLength(2);
   });
 
   it('resends after 15 minutes while still unconfirmed', async () => {

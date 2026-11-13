@@ -105,3 +105,71 @@ describe('road history', () => {
     expect(buildHistory([], now)).toBeNull();
   });
 });
+
+import { DEFAULT_PREFS, describePrefs, normalizePrefs, PRESETS, wants } from './prefs';
+import { handleSignup } from './signup';
+import { savePrefs, subscriberById } from './subscribers';
+import { signForm, signLink, verifyLink } from './tokens';
+
+describe('alert settings', () => {
+  it('keeps only values it understands and treats "everything" as no restriction', () => {
+    expect(normalizePrefs(null)).toEqual(DEFAULT_PREFS);
+    expect(normalizePrefs({ roads: ['330', 'bogus', '38'], days: ['5', '6', 9], morning: 'on', closures: false, pauseUntil: 'soon' })).toEqual({
+      roads: ['330', '38'],
+      days: [5, 6],
+      morning: true,
+      closures: false,
+      pauseUntil: '',
+    });
+    expect(normalizePrefs({ roads: ['330', '18-crestline', '18-front', '38', '18-back'], days: [0, 1, 2, 3, 4, 5, 6] })).toMatchObject({ roads: [], days: [] });
+    expect(describePrefs(PRESETS[1].prefs)).toBe('morning summary and closure alerts for all roads, Sun, Thu, Fri, Sat');
+  });
+  it('decides who gets an email', () => {
+    const friday = 5;
+    expect(wants(DEFAULT_PREFS, 'morning', ['330'], '2027-01-15', friday)).toBe(true);
+    expect(wants({ ...DEFAULT_PREFS, roads: ['38'] }, 'morning', ['330'], '2027-01-15', friday)).toBe(false);
+    expect(wants({ ...DEFAULT_PREFS, roads: ['38', '330'] }, 'closure', ['330'], '2027-01-15', friday)).toBe(true);
+    expect(wants({ ...DEFAULT_PREFS, days: [0, 6] }, 'morning', ['330'], '2027-01-15', friday)).toBe(false);
+    expect(wants({ ...DEFAULT_PREFS, morning: false }, 'morning', ['330'], '2027-01-15', friday)).toBe(false);
+    expect(wants({ ...DEFAULT_PREFS, morning: false }, 'closure', ['330'], '2027-01-15', friday)).toBe(true);
+    expect(wants({ ...DEFAULT_PREFS, pauseUntil: '2027-02-01' }, 'morning', ['330'], '2027-01-15', friday)).toBe(false);
+    expect(wants({ ...DEFAULT_PREFS, pauseUntil: '2027-01-15' }, 'morning', ['330'], '2027-01-15', friday)).toBe(true);
+  });
+  it('sends only to people whose settings match, with a settings link', async () => {
+    await ensureEmailTables();
+    await pg.exec(`INSERT INTO email_subscribers (email, status, prefs) VALUES
+      ('all@example.com','confirmed','{}'),
+      ('other-road@example.com','confirmed','{"roads":["18-back"]}'),
+      ('paused@example.com','confirmed','{"pauseUntil":"2027-03-01"}'),
+      ('one-road@example.com','confirmed','{"roads":["330"]}')`);
+    const out: Mail[] = [];
+    const res = await runStormEmails(storm, [], STORM_WEATHER, morning, async (m) => void out.push(m));
+    expect(res).toEqual({ sent: 2, failed: 0 });
+    expect(out.map((m) => m.to).sort()).toEqual(['all@example.com', 'one-road@example.com']);
+    const one = out.find((m) => m.to.startsWith('one-road'))!;
+    expect(one.text).toContain('Hwy 330');
+    expect(one.text).not.toContain('Hwy 38 (');
+    expect(one.text).toMatch(/alerts\/manage\?token=/);
+  });
+  it('saves settings only with a genuine settings link, and emails that link to people already signed up', async () => {
+    await ensureEmailTables();
+    await pg.exec(`INSERT INTO email_subscribers (email, status) VALUES ('me@example.com','confirmed')`);
+    const id = String((await pg.query(`SELECT id FROM email_subscribers`)).rows[0] && ((await pg.query<{ id: string }>(`SELECT id FROM email_subscribers`)).rows[0].id));
+    const token = signLink('manage', id, 3600);
+    expect(verifyLink('manage', token)).toBe(id);
+    // An unsubscribe link cannot be used to change settings, and the reverse.
+    expect(verifyLink('manage', signLink('unsub', id, 3600))).toBeNull();
+    expect(await savePrefs(id, normalizePrefs({ roads: ['330'] }))).toBe(true);
+    expect(normalizePrefs((await subscriberById(id))!.prefs).roads).toEqual(['330']);
+    const out: Mail[] = [];
+    const now = Date.now();
+    const again = () => handleSignup({ email: 'me@example.com', trap: '', formToken: signForm(now - 5000), ip: '1.2.3.4' }, { send: async (m) => void out.push(m), mxOk: async () => true, now });
+    expect(await again()).toMatchObject({ ok: true });
+    expect(out).toHaveLength(1);
+    expect(out[0].subject).toBe('Your Live Big Bear alert settings');
+    expect(out[0].text).toMatch(/alerts\/manage\?token=/);
+    // A second request minutes later sends nothing more, and looks the same on screen.
+    expect(await again()).toMatchObject({ ok: true });
+    expect(out).toHaveLength(1);
+  });
+});
