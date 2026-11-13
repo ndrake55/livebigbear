@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { DAY_NAMES, describePrefs, normalizePrefs, PRESETS, type Prefs } from '@/lib/prefs';
+import { DAY_NAMES, describePrefs, normalizePrefs, PRESETS, type Prefs, SNOW_STEPS } from '@/lib/prefs';
 import { ROUTES } from '@/lib/routes';
 import { ensureEmailTables, subscriberById } from '@/lib/subscribers';
 import { signLink, verifyLink } from '@/lib/tokens';
@@ -110,6 +110,29 @@ export default async function ManagePage({
               <small>When a road closes during the day.</small>
             </span>
           </label>
+        </fieldset>
+
+        <fieldset className="card">
+          <legend>Weather</legend>
+          <label className="signup-label" htmlFor="snow">
+            Snow forecast
+          </label>
+          <select id="snow" name="snow" className="signup-input" defaultValue={String(p.snow)}>
+            <option value="0">Do not email me about snow forecasts</option>
+            {SNOW_STEPS.map((n) => (
+              <option key={n} value={n}>
+                When {n} inches or more are forecast in 24 hours
+              </option>
+            ))}
+          </select>
+          <label className="check" style={{ marginTop: 8 }}>
+            <input type="checkbox" name="warnings" defaultChecked={p.warnings} />
+            <span>
+              <strong>Weather warnings</strong>
+              <small>Winter storm, high wind and flood warnings from the National Weather Service.</small>
+            </span>
+          </label>
+          <p className="note">Weather emails arrive between 9 AM and 9 PM, once per storm.</p>
         </fieldset>
 
         <fieldset className="card">

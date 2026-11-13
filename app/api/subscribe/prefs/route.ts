@@ -18,6 +18,8 @@ export async function POST(request: Request) {
       // An unticked box sends nothing, so read these as on only when present.
       morning: form.get('morning') === 'on',
       closures: form.get('closures') === 'on',
+      warnings: form.get('warnings') === 'on',
+      snow: String(form.get('snow') ?? ''),
       pauseUntil: String(form.get('pauseUntil') ?? ''),
     });
   } catch {

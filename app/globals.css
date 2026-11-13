@@ -217,3 +217,4 @@ img.panel-media { max-height: 240px; object-fit: contain; }
 .linklike { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
 .signup-row-stack { flex-direction: column; }
 .signup-row-stack .signup-button { width: 100%; }
+select.signup-input { width: 100%; appearance: auto; }

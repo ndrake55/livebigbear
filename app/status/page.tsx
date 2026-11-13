@@ -13,7 +13,7 @@ import { getOffRoad } from '@/lib/offroad';
 import { getLake } from '@/lib/lake';
 import { getListed } from '@/lib/trailheads';
 import storedLines from '@/lib/road-lines.json';
-import { plan, recentSends } from '@/lib/storm-mail';
+import { plan, recentSends, weatherPlans } from '@/lib/storm-mail';
 import { getAir } from '@/lib/air';
 import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
@@ -217,7 +217,7 @@ export default async function StatusPage() {
             <span className="row-sub">
               {!isMailConfigured()
                 ? 'Waiting for email to be set up.'
-                : `Right now: ${stormPlan.kind === 'none' ? `nothing to send. ${stormPlan.why}` : `a ${stormPlan.kind} email is due.`} Recent sends: ${sends.length ? sends.map((x) => `${x.key} (${x.sent} sent, ${x.failed} failed)`).join('; ') : 'none yet'}`}
+                : `Right now: ${stormPlan.kind === 'none' ? `nothing to send. ${stormPlan.why}` : `a ${stormPlan.kind} email is due.`} Weather emails due: ${weatherPlans(weather, new Date()).map((w) => w.key).join(', ') || 'none'}. Recent sends: ${sends.length ? sends.map((x) => `${x.key} (${x.sent} sent, ${x.failed} failed)`).join('; ') : 'none yet'}`}
             </span>
           </span>
         </div>

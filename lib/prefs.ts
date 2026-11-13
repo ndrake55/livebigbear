@@ -10,11 +10,18 @@ export interface Prefs {
   morning: boolean;
   /** An alert when a road closes during the day. */
   closures: boolean;
+  /** Email when at least this many inches of snow are forecast in 24 hours. 0 means never. */
+  snow: number;
+  /** Email when the weather service issues a winter storm, wind or flood warning. */
+  warnings: boolean;
   /** No emails until this date (yyyy-mm-dd, Pacific), or "" for not paused. */
   pauseUntil: string;
 }
 
-export const DEFAULT_PREFS: Prefs = { roads: [], days: [], morning: true, closures: true, pauseUntil: '' };
+/** The snow amounts people can choose between, in inches. */
+export const SNOW_STEPS = [3, 6, 12];
+
+export const DEFAULT_PREFS: Prefs = { roads: [], days: [], morning: true, closures: true, snow: 6, warnings: true, pauseUntil: '' };
 
 const ROAD_IDS = ROUTES.map((r) => r.id);
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -31,13 +38,15 @@ export function normalizePrefs(raw: unknown): Prefs {
     days: days.length === 7 ? [] : days,
     morning: r.morning === undefined ? true : r.morning === true || r.morning === 'true' || r.morning === 'on',
     closures: r.closures === undefined ? true : r.closures === true || r.closures === 'true' || r.closures === 'on',
+    snow: r.snow === undefined ? DEFAULT_PREFS.snow : [0, ...SNOW_STEPS].includes(Number(r.snow)) ? Number(r.snow) : DEFAULT_PREFS.snow,
+    warnings: r.warnings === undefined ? true : r.warnings === true || r.warnings === 'true' || r.warnings === 'on',
     pauseUntil: pause,
   };
 }
 
 /** One-tap starting points. People can adjust anything afterwards. */
 export const PRESETS: { key: string; name: string; blurb: string; prefs: Prefs }[] = [
-  { key: 'closures', name: 'Just closures', blurb: 'Only when a road shuts.', prefs: { ...DEFAULT_PREFS, morning: false } },
+  { key: 'closures', name: 'Just closures', blurb: 'Only when a road shuts.', prefs: { ...DEFAULT_PREFS, morning: false, snow: 0, warnings: false } },
   { key: 'weekend', name: 'Driving up for the weekend', blurb: 'Everything, Thursday through Sunday.', prefs: { ...DEFAULT_PREFS, days: [0, 4, 5, 6] } },
   { key: 'local', name: 'I live here', blurb: 'Everything, every day.', prefs: { ...DEFAULT_PREFS } },
 ];
@@ -55,10 +64,22 @@ export function wants(prefs: Prefs, kind: 'morning' | 'closure', affected: strin
   return affected.some((id) => prefs.roads.includes(id));
 }
 
+/**
+ * Should this subscriber get a weather email today? For snow, `bucket` is the amount just
+ * reached (3, 6 or 12 inches); people are emailed when the forecast reaches the amount they chose.
+ */
+export function wantsWeather(prefs: Prefs, kind: 'snow' | 'warning', bucket: number, today: string, weekday: number): boolean {
+  if (prefs.pauseUntil && today < prefs.pauseUntil) return false;
+  if (prefs.days.length > 0 && !prefs.days.includes(weekday)) return false;
+  return kind === 'snow' ? prefs.snow > 0 && prefs.snow === bucket : prefs.warnings;
+}
+
 /** A one-line summary of the settings, for the page and for tests. */
 export function describePrefs(p: Prefs): string {
   const roads = p.roads.length === 0 ? 'all roads' : ROUTES.filter((r) => p.roads.includes(r.id)).map((r) => r.name).join(', ');
   const days = p.days.length === 0 ? 'every day' : p.days.map((d) => DAY_NAMES[d].slice(0, 3)).join(', ');
-  const what = [p.morning && 'morning summary', p.closures && 'closure alerts'].filter(Boolean).join(' and ') || 'nothing';
-  return `${what} for ${roads}, ${days}${p.pauseUntil ? `, paused until ${p.pauseUntil}` : ''}`;
+  const road = [p.morning && 'morning summary', p.closures && 'closure alerts'].filter(Boolean).join(' and ');
+  const weather = [p.snow > 0 && `snow forecasts of ${p.snow} inches or more`, p.warnings && 'weather warnings'].filter(Boolean).join(' and ');
+  const what = [road && `${road} for ${roads}`, weather].filter(Boolean).join(', plus ') || 'nothing';
+  return `${what}, ${days}${p.pauseUntil ? `, paused until ${p.pauseUntil}` : ''}`;
 }

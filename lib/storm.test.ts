@@ -119,10 +119,16 @@ describe('alert settings', () => {
       days: [5, 6],
       morning: true,
       closures: false,
+      snow: 6,
+      warnings: true,
       pauseUntil: '',
     });
     expect(normalizePrefs({ roads: ['330', '18-crestline', '18-front', '38', '18-back'], days: [0, 1, 2, 3, 4, 5, 6] })).toMatchObject({ roads: [], days: [] });
-    expect(describePrefs(PRESETS[1].prefs)).toBe('morning summary and closure alerts for all roads, Sun, Thu, Fri, Sat');
+    expect(describePrefs(PRESETS[1].prefs)).toBe('morning summary and closure alerts for all roads, plus snow forecasts of 6 inches or more and weather warnings, Sun, Thu, Fri, Sat');
+    expect(describePrefs(PRESETS[0].prefs)).toBe('closure alerts for all roads, every day');
+    expect(normalizePrefs({ snow: '12', warnings: false })).toMatchObject({ snow: 12, warnings: false });
+    expect(normalizePrefs({ snow: '7' }).snow).toBe(6);
+    expect(normalizePrefs({ snow: 0 }).snow).toBe(0);
   });
   it('decides who gets an email', () => {
     const friday = 5;
@@ -201,5 +207,53 @@ describe('stored road shapes', () => {
         expect(lat).toBeLessThan(34.5);
       }
     }
+  });
+});
+
+import { isAlertable, weatherPlans } from './storm-mail';
+import { wantsWeather } from './prefs';
+
+describe('snow and weather warning emails', () => {
+  it('plans them by day only, one per snow amount reached and one per warning', () => {
+    expect(weatherPlans(STORM_WEATHER, morning)).toEqual([]); // mornings belong to the road summary
+    expect(weatherPlans(STORM_WEATHER, night)).toEqual([]);
+    const due = weatherPlans(STORM_WEATHER, afternoon);
+    expect(due.map((w) => w.key)).toEqual(['snow:2027-01-15:3', 'snow:2027-01-15:6', 'warning:2027-01-15:winter-storm-warning']);
+    expect(due[0].previousKey).toBe('snow:2027-01-14:3');
+    expect(weatherPlans({ ...STORM_WEATHER, snow24hIn: 1, alerts: [] }, afternoon)).toEqual([]);
+    expect(weatherPlans(null, afternoon)).toEqual([]);
+  });
+  it('only treats winter, wind and flood notices as worth an email', () => {
+    for (const yes of ['Winter Storm Warning', 'Winter Weather Advisory', 'High Wind Warning', 'Flash Flood Warning', 'Blizzard Warning', 'Winter Storm Watch']) expect(isAlertable(yes)).toBe(true);
+    for (const no of ['Red Flag Warning', 'Evacuation Immediate', 'Special Weather Statement', 'Air Quality Alert', 'Heat Advisory']) expect(isAlertable(no)).toBe(false);
+  });
+  it('matches people to the snow amount they chose', () => {
+    const fri = 5;
+    expect(wantsWeather(DEFAULT_PREFS, 'snow', 6, '2027-01-15', fri)).toBe(true);
+    expect(wantsWeather(DEFAULT_PREFS, 'snow', 3, '2027-01-15', fri)).toBe(false);
+    expect(wantsWeather({ ...DEFAULT_PREFS, snow: 0 }, 'snow', 6, '2027-01-15', fri)).toBe(false);
+    expect(wantsWeather({ ...DEFAULT_PREFS, warnings: false }, 'warning', 0, '2027-01-15', fri)).toBe(false);
+    expect(wantsWeather({ ...DEFAULT_PREFS, days: [0, 6] }, 'warning', 0, '2027-01-15', fri)).toBe(false);
+    expect(wantsWeather({ ...DEFAULT_PREFS, pauseUntil: '2027-02-01' }, 'snow', 6, '2027-01-15', fri)).toBe(false);
+  });
+  it('sends each person the emails they asked for, once per storm', async () => {
+    await ensureEmailTables();
+    await pg.exec(`INSERT INTO email_subscribers (email, status, prefs) VALUES
+      ('default@example.com','confirmed','{}'),
+      ('three@example.com','confirmed','{"snow":3,"warnings":false}'),
+      ('none@example.com','confirmed','{"snow":0,"warnings":false}')`);
+    const out: Mail[] = [];
+    const send = async (m: Mail) => void out.push(m);
+    const first = await runStormEmails(clear, [], STORM_WEATHER, afternoon, send);
+    expect(first).toEqual({ sent: 3, failed: 0 });
+    const got = (who: string) => out.filter((m) => m.to.startsWith(who)).map((m) => m.subject);
+    expect(got('three')).toEqual(['Snow for Big Bear: 6 inches forecast in the next 24 hours']);
+    expect(got('default').sort()).toEqual(['Snow for Big Bear: 6 inches forecast in the next 24 hours', 'Winter Storm Warning for Big Bear']);
+    expect(got('none')).toEqual([]);
+    expect(out[0].text).toMatch(/alerts\/manage\?token=/);
+    // Later the same day, and the next afternoon while the storm continues: nothing more.
+    expect((await runStormEmails(clear, [], STORM_WEATHER, new Date(afternoon.getTime() + 3_600_000), send)).sent).toBe(0);
+    expect((await runStormEmails(clear, [], STORM_WEATHER, new Date(afternoon.getTime() + 86_400_000), send)).sent).toBe(0);
+    expect(out).toHaveLength(3);
   });
 });

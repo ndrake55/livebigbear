@@ -46,7 +46,7 @@ export default async function AlertsPage() {
 
       <div className="title">
         <h1>Storm-day emails</h1>
-        <p>Free. A morning summary when chains or closures are in effect, and word of major closures.</p>
+        <p>Free. A morning summary when chains or closures are in effect, word of major closures, and a heads-up when snow is coming.</p>
       </div>
 
       {!alertsOn() && <div className="notice">Email signup is coming soon.</div>}
@@ -98,6 +98,12 @@ export default async function AlertsPage() {
             <span className="row-text">
               <span className="row-name">Major closures</span>
               <span className="row-sub">When a road into the valley closes.</span>
+            </span>
+          </div>
+          <div className="row row-static">
+            <span className="row-text">
+              <span className="row-name">Snow on the way</span>
+              <span className="row-sub">A heads-up when 6 inches or more are forecast, or a winter storm warning is issued.</span>
             </span>
           </div>
           <div className="row row-static">
