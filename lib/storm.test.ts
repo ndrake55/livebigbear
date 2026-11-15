@@ -11,8 +11,8 @@ import { STORM_WEATHER } from './weather';
 
 const storm = summarize([...STORM_SAMPLE]);
 const clear = storm.map((r) => ({ ...r, level: 'open' as const }));
-// 7:30 AM, 1:00 PM and 11:30 PM Pacific on a winter day (Pacific is UTC-8 in January).
-const morning = new Date('2027-01-15T15:30:00Z');
+// 6:30 AM, 1:00 PM and 11:30 PM Pacific on a winter day (Pacific is UTC-8 in January).
+const morning = new Date('2027-01-15T14:30:00Z');
 const afternoon = new Date('2027-01-15T21:00:00Z');
 const night = new Date('2027-01-16T07:30:00Z');
 
@@ -38,7 +38,7 @@ beforeEach(async () => {
 
 describe('deciding what to send', () => {
   it('sends a morning summary only when roads are affected', () => {
-    expect(plan(storm, [], morning)).toEqual({ kind: 'morning', key: 'morning:2027-01-15' });
+    expect(plan(storm, [], morning)).toEqual({ kind: 'morning', key: 'morning:2027-01-15:6', hour: 6 });
     expect(plan(clear, [], morning).kind).toBe('none');
     expect(plan(storm, [], afternoon).kind).toBe('none');
   });
@@ -115,16 +115,18 @@ describe('alert settings', () => {
   it('keeps only values it understands and treats "everything" as no restriction', () => {
     expect(normalizePrefs(null)).toEqual(DEFAULT_PREFS);
     expect(normalizePrefs({ roads: ['330', 'bogus', '38'], days: ['5', '6', 9], morning: 'on', closures: false, pauseUntil: 'soon' })).toEqual({
+      ...DEFAULT_PREFS,
       roads: ['330', '38'],
       days: [5, 6],
       morning: true,
+      morningHour: 6,
       closures: false,
       snow: 6,
       warnings: true,
       pauseUntil: '',
     });
     expect(normalizePrefs({ roads: ['330', '18-crestline', '18-front', '38', '18-back'], days: [0, 1, 2, 3, 4, 5, 6] })).toMatchObject({ roads: [], days: [] });
-    expect(describePrefs(PRESETS[1].prefs)).toBe('morning summary and closure alerts for all roads, plus snow forecasts of 6 inches or more and weather warnings, Sun, Thu, Fri, Sat');
+    expect(describePrefs(PRESETS[1].prefs)).toBe('6 AM summary and closure alerts for all roads, plus snow forecasts of 6 inches or more and weather warnings, Sun, Thu, Fri, Sat');
     expect(describePrefs(PRESETS[0].prefs)).toBe('closure alerts for all roads, every day');
     expect(normalizePrefs({ snow: '12', warnings: false })).toMatchObject({ snow: 12, warnings: false });
     expect(normalizePrefs({ snow: '7' }).snow).toBe(6);
@@ -255,5 +257,25 @@ describe('snow and weather warning emails', () => {
     expect((await runStormEmails(clear, [], STORM_WEATHER, new Date(afternoon.getTime() + 3_600_000), send)).sent).toBe(0);
     expect((await runStormEmails(clear, [], STORM_WEATHER, new Date(afternoon.getTime() + 86_400_000), send)).sent).toBe(0);
     expect(out).toHaveLength(3);
+  });
+});
+
+describe('choosing when the morning summary arrives', () => {
+  it('sends each hour to the people who chose it, one summary per person per day', async () => {
+    await ensureEmailTables();
+    await pg.exec(`INSERT INTO email_subscribers (email, status, prefs) VALUES
+      ('six@example.com','confirmed','{}'),
+      ('eight@example.com','confirmed','{"morningHour":8}')`);
+    const out: Mail[] = [];
+    const send = async (m: Mail) => void out.push(m);
+    const at = (hourUtc: string) => new Date(`2027-01-15T${hourUtc}:10:00Z`);
+    expect(await runStormEmails(storm, [], null, at('13'), send)).toMatchObject({ sent: 0 }); // 5 AM: nobody chose it
+    expect(await runStormEmails(storm, [], null, at('14'), send)).toMatchObject({ sent: 1 }); // 6 AM
+    expect(await runStormEmails(storm, [], null, new Date('2027-01-15T14:40:00Z'), send)).toMatchObject({ sent: 0 }); // 6:40, already sent
+    expect(await runStormEmails(storm, [], null, at('15'), send)).toMatchObject({ sent: 0 }); // 7 AM
+    expect(await runStormEmails(storm, [], null, at('16'), send)).toMatchObject({ sent: 1 }); // 8 AM
+    expect(out.map((m) => m.to)).toEqual(['six@example.com', 'eight@example.com']);
+    expect(normalizePrefs({ morningHour: '11' }).morningHour).toBe(6);
+    expect(normalizePrefs({ morningHour: '8' }).morningHour).toBe(8);
   });
 });

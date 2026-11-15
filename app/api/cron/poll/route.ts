@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSnapshot } from '@/lib/caltrans';
-import { hasDb, recordStatuses } from '@/lib/db';
+import { hasDb, recordStatusChanges } from '@/lib/db';
 import { COMMUNITIES } from '@/lib/communities';
 import { isMailConfigured } from '@/lib/mailer';
 import { runStormEmails } from '@/lib/storm-mail';
 import { ensureEmailTables, purgeStale } from '@/lib/subscribers';
+import { runMorningTexts, runTextAlerts, textsOn } from '@/lib/text-plan';
 import { getWeather } from '@/lib/weather';
 
 export const maxDuration = 60;
@@ -21,7 +22,8 @@ export async function GET(request: Request) {
   if (!snap.ok) return NextResponse.json({ ok: false, error: snap.error }, { status: 502 });
   if (!hasDb()) return NextResponse.json({ ok: false, error: 'DATABASE_URL is not set' }, { status: 500 });
   try {
-    const changed = await recordStatuses(snap.routes);
+    const changes = await recordStatusChanges(snap.routes);
+    const changed = changes.map((c) => c.id);
     // Housekeeping for email signups: drop week-old unconfirmed ones and old rate-limit rows.
     await ensureEmailTables();
     await purgeStale();
@@ -36,7 +38,17 @@ export async function GET(request: Request) {
         email = { error: e instanceof Error ? e.message : 'email error' };
       }
     }
-    return NextResponse.json({ ok: true, changed, email });
+    // Paid text alerts: road changes as they happen, and the morning summary by text.
+    let texts: unknown = 'Text alerts are not set up.';
+    if (textsOn()) {
+      try {
+        const now = new Date();
+        texts = { changes: await runTextAlerts(snap.routes, changes, now), morning: await runMorningTexts(snap.routes, now) };
+      } catch (e) {
+        texts = { error: e instanceof Error ? e.message : 'text error' };
+      }
+    }
+    return NextResponse.json({ ok: true, changed, email, texts });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : 'database error' },

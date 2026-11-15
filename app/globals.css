@@ -218,3 +218,6 @@ img.panel-media { max-height: 240px; object-fit: contain; }
 .signup-row-stack { flex-direction: column; }
 .signup-row-stack .signup-button { width: 100%; }
 select.signup-input { width: 100%; appearance: auto; }
+.button-quiet { width: 100%; border: 1px solid var(--line, #c9d3dc); background: transparent; color: inherit; font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; }
+.prefs details summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+[hidden] { display: none !important; }

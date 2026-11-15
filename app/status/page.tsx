@@ -18,6 +18,9 @@ import { getAir } from '@/lib/air';
 import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
 import { ensureEmailTables, subscriberCounts } from '@/lib/subscribers';
+import { isSmsConfigured } from '@/lib/sms';
+import { isStripeConfigured } from '@/lib/stripe';
+import { textCounts, textsOn } from '@/lib/text-plan';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Data check', robots: { index: false } };
@@ -49,6 +52,8 @@ export default async function StatusPage() {
       subsError = e instanceof Error ? e.message : 'database error';
     }
   }
+  let texts: { active: number; verified: number; stopped: number; today: number } | null = null;
+  if (textsOn()) texts = await textCounts().catch(() => null);
   const eventsKey = process.env.SES_EVENTS_KEY ?? '';
   const stormPlan = plan(snap.routes, [], new Date());
   const sends = hasDb() ? await recentSends().catch(() => []) : [];
@@ -220,6 +225,21 @@ export default async function StatusPage() {
                 : `Right now: ${stormPlan.kind === 'none' ? `nothing to send. ${stormPlan.why}` : `a ${stormPlan.kind} email is due.`} Weather emails due: ${weatherPlans(weather, new Date()).map((w) => w.key).join(', ') || 'none'}. Recent sends: ${sends.length ? sends.map((x) => `${x.key} (${x.sent} sent, ${x.failed} failed)`).join('; ') : 'none yet'}`}
             </span>
           </span>
+        </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Text alerts (Twilio and Stripe)</span>
+            <span className="row-sub">
+              {`Twilio: ${isSmsConfigured() ? 'set up' : 'missing TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN or TWILIO_PHONE_NUMBER'}. Stripe: ${
+                isStripeConfigured()
+                  ? 'set up'
+                  : `missing ${['STRIPE_SECRET_KEY', 'STRIPE_PRICE_ID', 'STRIPE_WEBHOOK_SECRET'].filter((k) => !process.env[k]).join(', ')}`
+              }.${process.env.TEXT_ALERTS === 'off' ? ' Alert texts are switched off (TEXT_ALERTS=off).' : ''}${
+                texts ? ` Paying: ${texts.active}. Number confirmed: ${texts.verified}. Replied STOP: ${texts.stopped}. Texts in the last day: ${texts.today}.` : ''
+              }`}
+            </span>
+          </span>
+          <span className={`tag ${textsOn() ? 'tag-open' : 'tag-unknown'}`}>{textsOn() ? 'On' : 'Not yet'}</span>
         </div>
         <div className="row">
           <span className="row-text">

@@ -2,7 +2,9 @@ import type { RouteSummary } from './caltrans';
 import { getSql } from './db';
 import { type Mail, sendMail, siteUrl } from './mailer';
 import { APPROACHES } from './routes';
+import { isSmsConfigured } from './sms';
 import { HEADLINE, isChains, LABEL, verdict } from './status';
+import { isStripeConfigured } from './stripe';
 import { normalizePrefs, type Prefs, SNOW_STEPS, wants, wantsWeather } from './prefs';
 import { ensureEmailTables } from './subscribers';
 import { signLink } from './tokens';
@@ -29,12 +31,13 @@ const affected = (routes: RouteSummary[]) => routes.filter((r) => r.level === 'c
 
 export type Plan =
   | { kind: 'none'; why: string }
-  | { kind: 'morning'; key: string }
+  | { kind: 'morning'; key: string; hour: number }
   | { kind: 'closure'; key: string; closed: RouteSummary[] };
 
 /**
  * Decides what, if anything, to send right now.
- * - Morning summary: once a day, 5 to 9 AM Pacific, only if a road has chains or is closed.
+ * - Morning summary: 5 to 9 AM Pacific, only if a road has chains or is closed. It goes out at
+ *   the start of each hour to the people who chose that hour, so each person gets one a day.
  * - Closure alert: when a road newly closes outside the morning window and outside quiet hours.
  * `newlyChanged` is the list of road ids whose status just changed.
  */
@@ -42,7 +45,8 @@ export function plan(routes: RouteSummary[], newlyChanged: string[], now: Date):
   const { date, hour } = pacificParts(now);
   const hit = affected(routes);
   if (hour >= MORNING_FROM_HOUR && hour < MORNING_UNTIL_HOUR) {
-    return hit.length > 0 ? { kind: 'morning', key: `morning:${date}` } : { kind: 'none', why: 'No chains or closures this morning.' };
+    // One send per hour of the window, each to the people who chose that hour.
+    return hit.length > 0 ? { kind: 'morning', key: `morning:${date}:${hour}`, hour } : { kind: 'none', why: 'No chains or closures this morning.' };
   }
   const closed = routes.filter((r) => r.level === 'closed' && newlyChanged.includes(r.def.id));
   if (closed.length === 0) return { kind: 'none', why: 'No road has newly closed.' };
@@ -115,6 +119,8 @@ export function stormMail(
   const listed = roads.length > 0 ? routes.filter((r) => roads.includes(r.def.id)) : routes;
   const { long } = pacificParts(now);
   let subject = `Big Bear roads this morning: ${v.headline.charAt(0).toLowerCase()}${v.headline.slice(1)}`;
+  // Mentioned only once the text plan can actually be bought.
+  const textOffer = isSmsConfigured() && isStripeConfigured();
   let opening = `Road status for ${long}.`;
   let big = v.headline;
   let detail = v.detail;
@@ -153,6 +159,7 @@ export function stormMail(
     '',
     'Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.',
     '',
+    ...(textOffer ? [`Want a text the moment a road closes or reopens? $12 a year: ${site}/alerts`, ''] : []),
     ...(manageUrl ? [`Choose your roads and days, or pause: ${manageUrl}`] : []),
     `Stop these emails: ${unsubscribeUrl}`,
   ].join('\n');
@@ -172,7 +179,7 @@ export function stormMail(
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">${rows}</table>
 ${extra ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.5">${esc(extra)}</p>` : ''}
 <p style="margin:20px 0 0"><a href="${site}/" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:12px">See live status and cameras</a></p>
-<p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#4A5B6C">Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.<br>You are getting this because you signed up at livebigbear.com. ${manageUrl ? `<a href="${manageUrl}" style="color:#4A5B6C">Choose your roads and days</a> · ` : ''}<a href="${unsubscribeUrl}" style="color:#4A5B6C">Unsubscribe</a></p>
+<p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#4A5B6C">Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.${textOffer ? `<br>Want a text the moment a road closes or reopens? <a href="${site}/alerts" style="color:#4A5B6C">Text alerts are $12 a year</a>.` : ''}<br>You are getting this because you signed up at livebigbear.com. ${manageUrl ? `<a href="${manageUrl}" style="color:#4A5B6C">Choose your roads and days</a> · ` : ''}<a href="${unsubscribeUrl}" style="color:#4A5B6C">Unsubscribe</a></p>
 </div></body></html>`;
   return { to, subject, text, html, unsubscribeUrl: oneClickUrl };
 }
@@ -275,7 +282,7 @@ export async function runStormEmails(
   if (p.kind !== 'none') {
     const roadKind = p.kind;
     const about = (p.kind === 'closure' ? p.closed : affected(routes)).map((r) => r.def.id);
-    const people = everyone.filter((s) => wants(s.prefs, roadKind, about, date, weekday));
+    const people = everyone.filter((s) => wants(s.prefs, roadKind, about, date, weekday, p.kind === 'morning' ? p.hour : undefined));
     add(await deliver(p.key, roadKind, people, (s, unsub, one, manage) => stormMail(s.email, roadKind, routes, weather, now, unsub, one, manage, s.prefs.roads), now, send));
   }
 

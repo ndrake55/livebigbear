@@ -16,11 +16,15 @@ export const getSql = (): Sql => override ?? (neon(url()) as unknown as Sql);
 /** The database address, used only to derive a signing secret when none is set. */
 export const dbSecretSeed = () => url();
 
-/**
- * Record each route's status, adding a history row only when the status changes.
- * Returns the ids of routes whose status changed.
- */
-export async function recordStatuses(routes: RouteSummary[]): Promise<string[]> {
+export interface StatusChange {
+  id: string;
+  /** The status before, or null the first time a road is recorded. */
+  from: string | null;
+  to: string;
+}
+
+/** Like recordStatuses, but also says what each road changed from. */
+export async function recordStatusChanges(routes: RouteSummary[]): Promise<StatusChange[]> {
   const sql = getSql();
   await sql`
     CREATE TABLE IF NOT EXISTS route_status_log (
@@ -34,7 +38,7 @@ export async function recordStatuses(routes: RouteSummary[]): Promise<string[]> 
     CREATE INDEX IF NOT EXISTS route_status_log_route_time
     ON route_status_log (route_id, changed_at DESC)`;
 
-  const changed: string[] = [];
+  const changed: StatusChange[] = [];
   for (const r of routes) {
     const last = await sql`
       SELECT level FROM route_status_log
@@ -44,7 +48,9 @@ export async function recordStatuses(routes: RouteSummary[]): Promise<string[]> 
     await sql`
       INSERT INTO route_status_log (route_id, level, description)
       VALUES (${r.def.id}, ${r.level}, ${r.description})`;
-    changed.push(r.def.id);
+    changed.push({ id: r.def.id, from: last.length > 0 ? String(last[0].level) : null, to: r.level });
   }
   return changed;
 }
+
+export const recordStatuses = async (routes: RouteSummary[]): Promise<string[]> => (await recordStatusChanges(routes)).map((c) => c.id);
