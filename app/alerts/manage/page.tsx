@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { DAY_NAMES, describePrefs, normalizePrefs, PRESETS, type Prefs, SNOW_STEPS } from '@/lib/prefs';
+import { DAY_NAMES, describePrefs, normalizePrefs, MORNING_HOURS, PRESETS, type Prefs, SNOW_STEPS } from '@/lib/prefs';
 import { ROUTES } from '@/lib/routes';
 import { ensureEmailTables, subscriberById } from '@/lib/subscribers';
 import { signLink, verifyLink } from '@/lib/tokens';
@@ -103,6 +103,16 @@ export default async function ManagePage({
               <small>On days when a road has chains or is closed.</small>
             </span>
           </label>
+          <label className="signup-label" htmlFor="morningHour">
+            Send the summary at
+          </label>
+          <select id="morningHour" name="morningHour" className="signup-input" defaultValue={String(p.morningHour)}>
+            {MORNING_HOURS.map((h) => (
+              <option key={h} value={h}>
+                {h}:00 AM Pacific
+              </option>
+            ))}
+          </select>
           <label className="check">
             <input type="checkbox" name="closures" defaultChecked={p.closures} />
             <span>

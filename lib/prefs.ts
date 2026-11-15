@@ -8,6 +8,8 @@ export interface Prefs {
   days: number[];
   /** The morning summary on days with chains or closures. */
   morning: boolean;
+  /** The hour, Pacific time, the morning summary should arrive: 5, 6, 7 or 8. */
+  morningHour: number;
   /** An alert when a road closes during the day. */
   closures: boolean;
   /** Email when at least this many inches of snow are forecast in 24 hours. 0 means never. */
@@ -21,7 +23,10 @@ export interface Prefs {
 /** The snow amounts people can choose between, in inches. */
 export const SNOW_STEPS = [3, 6, 12];
 
-export const DEFAULT_PREFS: Prefs = { roads: [], days: [], morning: true, closures: true, snow: 6, warnings: true, pauseUntil: '' };
+/** The hours people can choose for their morning summary, Pacific time. */
+export const MORNING_HOURS = [5, 6, 7, 8];
+
+export const DEFAULT_PREFS: Prefs = { roads: [], days: [], morning: true, morningHour: 6, closures: true, snow: 6, warnings: true, pauseUntil: '' };
 
 const ROAD_IDS = ROUTES.map((r) => r.id);
 export const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -37,6 +42,7 @@ export function normalizePrefs(raw: unknown): Prefs {
     roads: roads.length === ROAD_IDS.length ? [] : roads,
     days: days.length === 7 ? [] : days,
     morning: r.morning === undefined ? true : r.morning === true || r.morning === 'true' || r.morning === 'on',
+    morningHour: MORNING_HOURS.includes(Number(r.morningHour)) ? Number(r.morningHour) : DEFAULT_PREFS.morningHour,
     closures: r.closures === undefined ? true : r.closures === true || r.closures === 'true' || r.closures === 'on',
     snow: r.snow === undefined ? DEFAULT_PREFS.snow : [0, ...SNOW_STEPS].includes(Number(r.snow)) ? Number(r.snow) : DEFAULT_PREFS.snow,
     warnings: r.warnings === undefined ? true : r.warnings === true || r.warnings === 'true' || r.warnings === 'on',
@@ -54,12 +60,15 @@ export const PRESETS: { key: string; name: string; blurb: string; prefs: Prefs }
 /**
  * Should this subscriber get this email today? `affected` is the ids of the roads the email
  * is about: roads with chains or closures for the morning summary, newly closed roads for an alert.
- * `today` is the Pacific date (yyyy-mm-dd) and `weekday` the Pacific day of the week.
+ * `today` is the Pacific date (yyyy-mm-dd), `weekday` the Pacific day of the week, and `hour`
+ * the Pacific hour a morning summary is going out.
  */
-export function wants(prefs: Prefs, kind: 'morning' | 'closure', affected: string[], today: string, weekday: number): boolean {
+export function wants(prefs: Prefs, kind: 'morning' | 'closure', affected: string[], today: string, weekday: number, hour?: number): boolean {
   if (prefs.pauseUntil && today < prefs.pauseUntil) return false;
   if (prefs.days.length > 0 && !prefs.days.includes(weekday)) return false;
   if (kind === 'morning' ? !prefs.morning : !prefs.closures) return false;
+  // The morning summary goes out hour by hour, to the people who chose that hour.
+  if (kind === 'morning' && hour !== undefined && prefs.morningHour !== hour) return false;
   if (prefs.roads.length === 0) return true;
   return affected.some((id) => prefs.roads.includes(id));
 }
@@ -78,7 +87,7 @@ export function wantsWeather(prefs: Prefs, kind: 'snow' | 'warning', bucket: num
 export function describePrefs(p: Prefs): string {
   const roads = p.roads.length === 0 ? 'all roads' : ROUTES.filter((r) => p.roads.includes(r.id)).map((r) => r.name).join(', ');
   const days = p.days.length === 0 ? 'every day' : p.days.map((d) => DAY_NAMES[d].slice(0, 3)).join(', ');
-  const road = [p.morning && 'morning summary', p.closures && 'closure alerts'].filter(Boolean).join(' and ');
+  const road = [p.morning && `${p.morningHour} AM summary`, p.closures && 'closure alerts'].filter(Boolean).join(' and ');
   const weather = [p.snow > 0 && `snow forecasts of ${p.snow} inches or more`, p.warnings && 'weather warnings'].filter(Boolean).join(' and ');
   const what = [road && `${road} for ${roads}`, weather].filter(Boolean).join(', plus ') || 'nothing';
   return `${what}, ${days}${p.pauseUntil ? `, paused until ${p.pauseUntil}` : ''}`;
