@@ -24,6 +24,8 @@ export function ensureEmailTables(): Promise<void> {
     await sql`CREATE INDEX IF NOT EXISTS email_rate_key_at ON email_rate (key, at)`;
     await sql`ALTER TABLE email_subscribers ADD COLUMN IF NOT EXISTS prefs JSONB NOT NULL DEFAULT '{}'::jsonb`;
     await sql`ALTER TABLE email_subscribers ADD COLUMN IF NOT EXISTS last_manage_sent_at TIMESTAMPTZ`;
+    // The text plan (lib/text-plan.ts) adds its other columns; this one is needed to look people up.
+    await sql`ALTER TABLE email_subscribers ADD COLUMN IF NOT EXISTS text_status TEXT NOT NULL DEFAULT 'none'`;
   })().catch((e) => {
     ready = null;
     throw e;
@@ -127,15 +129,18 @@ export async function subscriberCounts(): Promise<Record<string, number>> {
   return Object.fromEntries(rows.map((r) => [r.status, r.n]));
 }
 
-/** One confirmed subscriber's address and settings, or null if they are not on the list. */
+/**
+ * One subscriber's address and settings, or null if they are not on the list. Someone paying
+ * for texts keeps their settings page even if their email address has bounced.
+ */
 export async function subscriberById(id: string): Promise<{ id: string; email: string; prefs: unknown } | null> {
-  const rows = await getSql()`SELECT id, email, prefs FROM email_subscribers WHERE id = ${id}::bigint AND status = 'confirmed'`;
+  const rows = await getSql()`SELECT id, email, prefs FROM email_subscribers WHERE id = ${id}::bigint AND (status = 'confirmed' OR text_status IN ('active', 'past_due'))`;
   return rows[0] ? { id: String(rows[0].id), email: String(rows[0].email), prefs: rows[0].prefs } : null;
 }
 
 export async function savePrefs(id: string, prefs: object): Promise<boolean> {
   const rows = await getSql()`
     UPDATE email_subscribers SET prefs = ${JSON.stringify(prefs)}::jsonb
-    WHERE id = ${id}::bigint AND status = 'confirmed' RETURNING id`;
+    WHERE id = ${id}::bigint AND (status = 'confirmed' OR text_status IN ('active', 'past_due')) RETURNING id`;
   return rows.length > 0;
 }

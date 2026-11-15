@@ -4,7 +4,9 @@ import { DAY_NAMES, describePrefs, normalizePrefs, MORNING_HOURS, PRESETS, type 
 import { ROUTES } from '@/lib/routes';
 import { ensureEmailTables, subscriberById } from '@/lib/subscribers';
 import { signLink, verifyLink } from '@/lib/tokens';
+import { isTextOnly, textState, textsOn, type TextState } from '@/lib/text-plan';
 import { RememberDevice } from '../remember';
+import { TextPlan, TextSettings } from '../text-section';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Manage my alerts', robots: { index: false } };
@@ -15,15 +17,17 @@ const mask = (email: string) => email.replace(/^(.{1,2})[^@]*(@.*)$/, '$1••�
 export default async function ManagePage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string; state?: string; preset?: string }>;
+  searchParams: Promise<{ token?: string; state?: string; preset?: string; text?: string }>;
 }) {
-  const { token, state, preset } = await searchParams;
+  const { token, state, preset, text } = await searchParams;
+  let plan: TextState | null = null;
   let person: { id: string; email: string; prefs: unknown } | null = null;
   try {
     const id = token ? verifyLink('manage', token) : null;
     if (id) {
       await ensureEmailTables();
       person = await subscriberById(id);
+      if (person && textsOn()) plan = await textState(person.id);
     }
   } catch {
     person = null;
@@ -51,7 +55,12 @@ export default async function ManagePage({
   const saved = normalizePrefs(person.prefs);
   // A preset fills in the form; nothing is stored until Save is pressed.
   const chosen = PRESETS.find((x) => x.key === preset);
-  const p: Prefs = chosen ? { ...chosen.prefs, roads: saved.roads, pauseUntil: saved.pauseUntil } : saved;
+  const p: Prefs = chosen
+    ? { ...saved, morning: chosen.prefs.morning, closures: chosen.prefs.closures, snow: chosen.prefs.snow, warnings: chosen.prefs.warnings, days: chosen.prefs.days }
+    : saved;
+  const texting = plan !== null && (plan.status === 'active' || plan.status === 'past_due') && plan.verified;
+  // A text plan bought without signing in has no email address of its own.
+  const textOnly = isTextOnly(person.email);
   const allRoads = p.roads.length === 0;
   const allDays = p.days.length === 0;
   const unsub = signLink('unsub', person.id, 3600);
@@ -67,14 +76,20 @@ export default async function ManagePage({
       <RememberDevice token={token} />
       <div className="title">
         <h1>Manage my alerts</h1>
-        <p>Settings for {mask(person.email)}</p>
+        <p>{textOnly ? 'Settings for your text plan' : `Settings for ${mask(person.email)}`}</p>
       </div>
 
       {state === 'saved' && <div className="notice notice-good">Saved. You will get {describePrefs(saved)}.</div>}
       {state === 'error' && <div className="notice">That did not save. Please try again.</div>}
       {chosen && <div className="notice">“{chosen.name}” is filled in below. Press Save to keep it.</div>}
 
-      <section>
+      {textOnly && (
+        <p className="note">
+          This plan is text only. Want the free emails too? Sign up with your address on the <Link href="/alerts">Alerts page</Link>.
+        </p>
+      )}
+
+      <section hidden={textOnly}>
         <h2>Quick start</h2>
         <div className="list">
           {PRESETS.map((x) => (
@@ -91,12 +106,14 @@ export default async function ManagePage({
         </div>
       </section>
 
+      {plan && <TextPlan token={token} state={plan} message={text} />}
+
       <form method="post" action="/api/subscribe/prefs" className="prefs">
         <input type="hidden" name="token" value={token} />
 
         <fieldset className="card">
-          <legend>What to send</legend>
-          <label className="check">
+          <legend>{textOnly ? 'Morning summary' : 'What to email'}</legend>
+          <label className="check" hidden={textOnly}>
             <input type="checkbox" name="morning" defaultChecked={p.morning} />
             <span>
               <strong>Morning summary</strong>
@@ -113,7 +130,7 @@ export default async function ManagePage({
               </option>
             ))}
           </select>
-          <label className="check">
+          <label className="check" hidden={textOnly}>
             <input type="checkbox" name="closures" defaultChecked={p.closures} />
             <span>
               <strong>Closure alerts</strong>
@@ -122,8 +139,10 @@ export default async function ManagePage({
           </label>
         </fieldset>
 
-        <fieldset className="card">
-          <legend>Weather</legend>
+        {texting && <TextSettings p={p} />}
+
+        <fieldset className="card" hidden={textOnly}>
+          <legend>Weather emails</legend>
           <label className="signup-label" htmlFor="snow">
             Snow forecast
           </label>
@@ -175,7 +194,7 @@ export default async function ManagePage({
         <fieldset className="card">
           <legend>Pause</legend>
           <label className="signup-label" htmlFor="pauseUntil">
-            No emails until
+            {texting ? 'No emails or texts until' : 'No emails until'}
           </label>
           <input id="pauseUntil" className="signup-input" type="date" name="pauseUntil" defaultValue={p.pauseUntil} />
           <p className="note">Leave empty to keep getting emails. They start again on the date you pick.</p>
@@ -186,8 +205,8 @@ export default async function ManagePage({
         </button>
       </form>
 
-      <p className="note">
-        Want to stop altogether? <Link href={`/alerts/unsubscribe?token=${encodeURIComponent(unsub)}`}>Unsubscribe</Link>.
+      <p className="note" hidden={textOnly}>
+        Want to stop the emails altogether? <Link href={`/alerts/unsubscribe?token=${encodeURIComponent(unsub)}`}>Unsubscribe</Link>.
       </p>
     </div>
   );

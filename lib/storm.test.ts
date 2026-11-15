@@ -115,6 +115,7 @@ describe('alert settings', () => {
   it('keeps only values it understands and treats "everything" as no restriction', () => {
     expect(normalizePrefs(null)).toEqual(DEFAULT_PREFS);
     expect(normalizePrefs({ roads: ['330', 'bogus', '38'], days: ['5', '6', 9], morning: 'on', closures: false, pauseUntil: 'soon' })).toEqual({
+      ...DEFAULT_PREFS,
       roads: ['330', '38'],
       days: [5, 6],
       morning: true,

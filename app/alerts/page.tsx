@@ -6,21 +6,32 @@ import { describePrefs, normalizePrefs } from '@/lib/prefs';
 import { REMEMBER_COOKIE, rememberedId } from '@/lib/remember';
 import { ensureEmailTables, subscriberById } from '@/lib/subscribers';
 import { signLink } from '@/lib/tokens';
+import { maskPhone } from '@/lib/sms';
+import { isTextOnly, textState, textsOn, type TextState } from '@/lib/text-plan';
 import { ForgetDevice } from './remember';
+import { TEXT_PRICE, TextBuyButton, TextConsent } from './text-section';
 import { SignupForm } from '../signup-form';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/alerts' },
-  title: 'Free Big Bear storm-day emails',
+  title: 'Big Bear road alerts by email and text',
   description:
-    'Free email on storm days with chain control, road closures and weather for the Big Bear Valley.',
+    'Free email on storm days with chain control, road closures and weather for the Big Bear Valley, plus optional text alerts the moment a road changes.',
 };
 
 const mask = (email: string) => email.replace(/^(.{1,2})[^@]*(@.*)$/, '$1•••$2');
 
-export default async function AlertsPage() {
+const TEXT_NOTES: Record<string, string> = {
+  busy: 'Too many tries from this connection. Please wait an hour and try again.',
+  unpaid: 'That checkout was not finished, so nothing was charged. You can start again below.',
+  error: 'Something went wrong on our side. Nothing was changed. Please try again shortly.',
+};
+
+export default async function AlertsPage({ searchParams }: { searchParams: Promise<{ text?: string }> }) {
+  const { text } = await searchParams;
+  let plan: TextState | null = null;
   // Someone who confirmed or opened their settings on this device is recognized for 30 days.
   let known: { id: string; email: string; prefs: unknown } | null = null;
   if (alertsOn()) {
@@ -29,12 +40,17 @@ export default async function AlertsPage() {
       if (id) {
         await ensureEmailTables();
         known = await subscriberById(id);
+        if (known && textsOn()) plan = await textState(known.id);
       }
     } catch {
       known = null;
     }
   }
-  const manageHref = known ? `/alerts/manage?token=${encodeURIComponent(signLink('manage', known.id, 3600))}` : '';
+  const manageToken = known ? signLink('manage', known.id, 3600) : '';
+  const manageHref = known ? `/alerts/manage?token=${encodeURIComponent(manageToken)}` : '';
+  // A text plan bought without signing in has no email address, so the email forms still apply.
+  const onEmail = known !== null && !isTextOnly(known.email);
+  const paid = plan !== null && (plan.status === 'active' || plan.status === 'past_due');
 
   return (
     <div className="shell">
@@ -51,7 +67,7 @@ export default async function AlertsPage() {
 
       {!alertsOn() && <div className="notice">Email signup is coming soon.</div>}
 
-      {alertsOn() && known && (
+      {alertsOn() && known && onEmail && (
         <section className="card">
           <h2>You are signed up</h2>
           <p className="note" style={{ marginTop: 0 }}>
@@ -66,7 +82,7 @@ export default async function AlertsPage() {
         </section>
       )}
 
-      {alertsOn() && !known && (
+      {alertsOn() && !onEmail && (
         <>
           <section className="card">
             <h2>Get storm-day emails</h2>
@@ -85,8 +101,44 @@ export default async function AlertsPage() {
         </>
       )}
 
+      {text && TEXT_NOTES[text] && <div className="notice">{TEXT_NOTES[text]}</div>}
+
+      <section className="card" id="text">
+        <h2>Text alerts, {TEXT_PRICE}</h2>
+        {paid && plan ? (
+          <>
+            <p className="note" style={{ marginTop: 0 }}>
+              {plan.verified
+                ? `You are on the text plan. Texts go to ${maskPhone(plan.phone)}.`
+                : 'You are paid up. One step left: enter the code we texted you.'}
+            </p>
+            <Link className="button" href={`${manageHref}#text`} style={{ marginTop: 12 }}>
+              {plan.verified ? 'Manage my texts' : 'Enter my code'}
+            </Link>
+          </>
+        ) : (
+          <>
+            <p className="note" style={{ marginTop: 0, marginBottom: 12 }}>
+              Email is free and always will be. For {TEXT_PRICE}, also get a text the moment a road closes or reopens, or chain controls go
+              on or come off, so you know before you leave the driveway.
+            </p>
+            {textsOn() ? (
+              <>
+                <TextBuyButton token={manageToken} />
+                <TextConsent />
+                <p className="note">
+                  Already on the text plan? <Link href="/alerts/text">Sign in with your phone</Link>.
+                </p>
+              </>
+            ) : (
+              <div className="notice">Text alerts are coming soon.</div>
+            )}
+          </>
+        )}
+      </section>
+
       <section>
-        <h2>What you get</h2>
+        <h2>What you get by email</h2>
         <div className="list">
           <div className="row row-static">
             <span className="row-text">
