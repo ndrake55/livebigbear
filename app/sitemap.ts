@@ -31,6 +31,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     page('/cameras', 0.9),
     page('/camping', 0.7, 'daily'),
     page('/about', 0.4, 'weekly'),
+    page('/terms', 0.2, 'weekly'),
+    page('/privacy', 0.2, 'weekly'),
     ...camps.campgrounds.map((c) => page(`/camping/${c.slug}`, 0.6, 'weekly')),
     page('/alerts', 0.5, 'weekly'),
   ];

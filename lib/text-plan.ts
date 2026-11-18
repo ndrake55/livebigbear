@@ -204,6 +204,20 @@ export async function applySubscriptionStatus(subscriptionId: string, stripeStat
   await getSql()`UPDATE email_subscribers SET text_status = ${status} WHERE stripe_subscription = ${subscriptionId}`;
 }
 
+/**
+ * Ends the text plan for a Stripe customer, after a full refund or a payment dispute.
+ * Returns the subscription to cancel at Stripe, or '' if the customer is not one of ours.
+ */
+export async function endPlanForCustomer(customerId: string): Promise<string> {
+  if (!customerId) return '';
+  await ensureTextTables();
+  const rows = await getSql()`
+    UPDATE email_subscribers SET text_status = 'canceled'
+    WHERE stripe_customer = ${customerId} AND text_status IN ('active', 'past_due')
+    RETURNING stripe_subscription`;
+  return rows[0] ? String(rows[0].stripe_subscription ?? '') : '';
+}
+
 /** STOP, START and the like, as reported by Twilio. */
 export async function applyReply(fromPhone: string, body: string): Promise<'stopped' | 'started' | 'ignored'> {
   const phone = normalizePhone(fromPhone);

@@ -10,6 +10,7 @@ import { maskPhone } from '@/lib/sms';
 import { isTextOnly, textState, textsOn, type TextState } from '@/lib/text-plan';
 import { ForgetDevice } from './remember';
 import { TEXT_PRICE, TextBuyButton, TextConsent } from './text-section';
+import { LegalLinks } from '../legal-bits';
 import { SignupForm } from '../signup-form';
 
 export const dynamic = 'force-dynamic';
@@ -175,6 +176,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
       <p className="note">
         <Link href="/alerts/sample">See a sample storm-day email</Link>.
       </p>
+      <LegalLinks />
     </div>
   );
 }

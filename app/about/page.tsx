@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { jsonLd, SITE } from '@/lib/site';
+import { LegalLinks } from '../legal-bits';
 
 export const metadata: Metadata = {
   title: 'About Live Big Bear: who runs it and where the data comes from',
@@ -91,6 +92,7 @@ export default function AboutPage() {
         Start with the <Link href="/">roads</Link>, the <Link href="/map">live map</Link> or{' '}
         <Link href="/explore">Explore</Link>.
       </p>
+      <LegalLinks />
     </div>
   );
 }

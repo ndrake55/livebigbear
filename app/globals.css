@@ -222,3 +222,4 @@ select.signup-input { width: 100%; appearance: auto; }
 .prefs details summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; color: var(--accent); text-decoration: underline; list-style: none; }
 .prefs details summary::-webkit-details-marker { display: none; }
 [hidden] { display: none !important; }
+.lede + .lede { margin-top: 10px; }
