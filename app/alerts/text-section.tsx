@@ -143,7 +143,6 @@ export function TextSettings({ p }: { p: Prefs }) {
   return (
     <fieldset className="card">
       <legend>What to text</legend>
-      <input type="hidden" name="hasText" value="1" />
       {(
         [
           ['textClosed', 'A road closes', 'The moment Caltrans reports it.'],
@@ -195,6 +194,8 @@ export function TextSettings({ p }: { p: Prefs }) {
         Pacific time. Pick the same hour twice for no quiet hours. Texts follow the roads, days and pause you set below. The morning summary
         text always comes at the hour you chose.
       </p>
+      {/* Kept last: the element right after the legend is the one the layout starts a new line for. */}
+      <input type="hidden" name="hasText" value="1" />
     </fieldset>
   );
 }
