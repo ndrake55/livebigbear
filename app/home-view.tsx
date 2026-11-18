@@ -10,6 +10,8 @@ import { loadSnapshot, pacificTime } from '@/lib/view';
 import { alertsOn } from '@/lib/alerts-on';
 import { InstallLink } from './install-hint';
 import { SignupForm } from './signup-form';
+import { SPONSORS } from '@/lib/sponsors';
+import { SponsorRow } from './sponsor-row';
 import { WeatherSection } from './weather-section';
 
 /** The home screen. With `picked`, the weather and wording are for that community. */
@@ -113,6 +115,8 @@ export async function HomeView({ demo, picked }: { demo?: string; picked?: Commu
           ))}
         </div>
       </section>
+
+      <SponsorRow sponsor={SPONSORS.home} />
 
       <WeatherSection weather={weather} place={picked ? picked.name : 'whole valley'} />
 
