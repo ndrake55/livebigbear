@@ -223,3 +223,7 @@ select.signup-input { width: 100%; appearance: auto; }
 .prefs details summary::-webkit-details-marker { display: none; }
 [hidden] { display: none !important; }
 .lede + .lede { margin-top: 10px; }
+.sponsor { display: flex; flex-direction: column; gap: 6px; }
+.sponsor-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.sponsor-row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 14px 16px; background: var(--card); border-radius: 16px; text-decoration: none; color: var(--ink); }
+.sponsor-mark { width: 44px; height: 44px; border-radius: 12px; background: #0a0d26; display: flex; align-items: center; justify-content: center; flex: none; }
