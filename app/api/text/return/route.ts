@@ -1,3 +1,4 @@
+import { noteProblem } from '@/lib/db';
 import { REMEMBER_COOKIE, rememberOptions, rememberValue } from '@/lib/remember';
 import { fetchSession } from '@/lib/stripe';
 import { go, manageUrl } from '@/lib/text-http';
@@ -23,7 +24,8 @@ export async function GET(request: Request) {
     const res = go(request, manageUrl(signLink('manage', linked.id, 3600), 'paid'));
     res.cookies.set(REMEMBER_COOKIE, rememberValue(linked.id), rememberOptions);
     return res;
-  } catch {
+  } catch (e) {
+    await noteProblem('return', e instanceof Error ? e.message : 'unknown error');
     return go(request, '/alerts?text=error');
   }
 }

@@ -3,17 +3,31 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const key = () => process.env.STRIPE_SECRET_KEY ?? '';
 export const isStripeConfigured = () => Boolean(key() && process.env.STRIPE_PRICE_ID && process.env.STRIPE_WEBHOOK_SECRET);
 
-async function stripe(method: 'GET' | 'POST', path: string, params?: Record<string, string>): Promise<any> {
+/**
+ * The Stripe API version this code was written against. Sending it with every request means a
+ * later change on Stripe's side cannot alter the answers until this line is updated on purpose.
+ */
+export const STRIPE_API_VERSION = '2026-10-28.endive';
+
+async function stripe(method: 'GET' | 'POST', path: string, params?: Record<string, string>, pinned = true): Promise<any> {
   const res = await fetch(`https://api.stripe.com/v1${path}`, {
     method,
-    headers: { Authorization: `Bearer ${key()}`, ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
+    headers: {
+      Authorization: `Bearer ${key()}`,
+      ...(pinned ? { 'Stripe-Version': STRIPE_API_VERSION } : {}),
+      ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
+    },
     body: params ? new URLSearchParams(params) : undefined,
     signal: AbortSignal.timeout(12000),
     cache: 'no-store',
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(`Stripe answered ${res.status}: ${String(json?.error?.message ?? '').slice(0, 160)}`);
-  return json;
+  if (res.ok) return json;
+  const message = String(json?.error?.message ?? '');
+  // If Stripe does not accept the pinned version, fall back to the account's own default
+  // rather than failing every request.
+  if (pinned && /api version/i.test(message)) return stripe(method, path, params, false);
+  throw new Error(`Stripe answered ${res.status}: ${message.slice(0, 200)}`);
 }
 
 /** Starts Stripe's own checkout page for the yearly text plan and returns its address. */
@@ -24,13 +38,23 @@ export async function createCheckout(opts: { site: string; subscriberId?: string
     'line_items[0][quantity]': '1',
     success_url: `${opts.site}/api/text/return?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${opts.site}/alerts`,
+    // A label for this checkout flow, so it can be told apart in Stripe's dashboard later.
+    integration_identifier: 'lbb_text_plan_qkzvwmtr',
     'phone_number_collection[enabled]': 'true',
     'custom_text[submit][message]':
       'By subscribing you agree to receive recurring road and weather alert texts from Live Big Bear at the mobile number above. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help.',
   };
   if (opts.subscriberId) params.client_reference_id = opts.subscriberId;
   if (opts.email) params.customer_email = opts.email;
-  const session = await stripe('POST', '/checkout/sessions', params);
+  let session: any;
+  try {
+    session = await stripe('POST', '/checkout/sessions', params);
+  } catch (e) {
+    // The label is optional. If Stripe rejects it, the checkout must still work without it.
+    if (!(e instanceof Error) || !e.message.includes('integration_identifier')) throw e;
+    delete params.integration_identifier;
+    session = await stripe('POST', '/checkout/sessions', params);
+  }
   return String(session.url);
 }
 
@@ -85,4 +109,23 @@ export function validStripeSignature(body: string, header: string | null, secret
       const b = Buffer.from(expected);
       return a.length === b.length && timingSafeEqual(a, b);
     });
+}
+
+/** For the status page: asks Stripe about the configured price and says, in plain words, whether it will work. */
+export async function checkPrice(): Promise<{ ok: boolean; summary: string }> {
+  const id = process.env.STRIPE_PRICE_ID ?? '';
+  if (!key() || !id) return { ok: false, summary: 'Not set up yet.' };
+  if (!id.startsWith('price_')) {
+    return { ok: false, summary: `STRIPE_PRICE_ID should start with "price_" but starts with "${id.slice(0, 5)}". Open the product in Stripe and copy the ID shown beside its price, not the product ID.` };
+  }
+  try {
+    const p = await stripe('GET', `/prices/${encodeURIComponent(id)}`);
+    const amount = `$${(Number(p.unit_amount ?? 0) / 100).toFixed(2)}`;
+    const mode = p.livemode ? 'live mode' : 'sandbox (test cards only)';
+    if (!p.active) return { ok: false, summary: `The price is archived in Stripe (${mode}).` };
+    if (p.type !== 'recurring') return { ok: false, summary: `The price is ${amount} one time, but the plan needs a recurring yearly price (${mode}).` };
+    return { ok: true, summary: `Price found: ${amount} every ${p.recurring?.interval_count > 1 ? `${p.recurring.interval_count} ` : ''}${p.recurring?.interval ?? '?'}, ${mode}.` };
+  } catch (e) {
+    return { ok: false, summary: e instanceof Error ? e.message : 'Could not reach Stripe.' };
+  }
 }

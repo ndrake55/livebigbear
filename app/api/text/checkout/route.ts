@@ -1,3 +1,4 @@
+import { noteProblem } from '@/lib/db';
 import { siteUrl } from '@/lib/mailer';
 import { createCheckout } from '@/lib/stripe';
 import { allow, ensureEmailTables, subscriberById } from '@/lib/subscribers';
@@ -17,7 +18,10 @@ export async function POST(request: Request) {
     const person = id ? await subscriberById(id) : null;
     const url = await createCheckout({ site: siteUrl(), subscriberId: person?.id, email: person?.email });
     return Response.redirect(url, 303);
-  } catch {
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'unknown error';
+    console.error('text checkout failed:', message);
+    await noteProblem('checkout', message);
     return go(request, '/alerts?text=error');
   }
 }
