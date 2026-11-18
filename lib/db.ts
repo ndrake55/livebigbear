@@ -54,3 +54,29 @@ export async function recordStatusChanges(routes: RouteSummary[]): Promise<Statu
 }
 
 export const recordStatuses = async (routes: RouteSummary[]): Promise<string[]> => (await recordStatusChanges(routes)).map((c) => c.id);
+
+/**
+ * A one-line note about the most recent failure of something, shown on the status page so a
+ * problem can be diagnosed without reading server logs. Email addresses are removed.
+ */
+export async function noteProblem(key: string, message: string): Promise<void> {
+  try {
+    const sql = getSql();
+    await sql`CREATE TABLE IF NOT EXISTS app_notes (key TEXT PRIMARY KEY, value TEXT NOT NULL, at TIMESTAMPTZ NOT NULL DEFAULT now())`;
+    const clean = message.replace(/[^\s@]+@[^\s@]+/g, '(address)').slice(0, 240);
+    await sql`
+      INSERT INTO app_notes (key, value) VALUES (${key}, ${clean})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, at = now()`;
+  } catch {
+    // Diagnostics must never break the thing being diagnosed.
+  }
+}
+
+export async function readProblem(key: string): Promise<{ value: string; at: Date } | null> {
+  try {
+    const rows = await getSql()`SELECT value, at FROM app_notes WHERE key = ${key}`;
+    return rows[0] ? { value: String(rows[0].value), at: new Date(rows[0].at) } : null;
+  } catch {
+    return null;
+  }
+}

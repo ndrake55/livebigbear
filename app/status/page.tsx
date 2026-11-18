@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CC_URL, getSnapshot } from '@/lib/caltrans';
 import { ROUTES } from '@/lib/routes';
-import { hasDb } from '@/lib/db';
+import { hasDb, readProblem } from '@/lib/db';
 import { COMMUNITIES } from '@/lib/communities';
 import { getWeather, isFresh } from '@/lib/weather';
 import { getCameras } from '@/lib/cameras';
@@ -19,7 +19,7 @@ import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
 import { ensureEmailTables, subscriberCounts } from '@/lib/subscribers';
 import { isSmsConfigured } from '@/lib/sms';
-import { isStripeConfigured } from '@/lib/stripe';
+import { checkPrice, isStripeConfigured } from '@/lib/stripe';
 import { textCounts, textsOn } from '@/lib/text-plan';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +54,10 @@ export default async function StatusPage() {
   }
   let texts: { active: number; verified: number; stopped: number; today: number } | null = null;
   if (textsOn()) texts = await textCounts().catch(() => null);
+  const price = isStripeConfigured() ? await checkPrice() : null;
+  const problems = hasDb()
+    ? (await Promise.all(['checkout', 'return', 'portal'].map(async (k) => ({ k, p: await readProblem(k) })))).filter((x) => x.p)
+    : [];
   const eventsKey = process.env.SES_EVENTS_KEY ?? '';
   const stormPlan = plan(snap.routes, [], new Date());
   const sends = hasDb() ? await recentSends().catch(() => []) : [];
@@ -241,6 +245,21 @@ export default async function StatusPage() {
           </span>
           <span className={`tag ${textsOn() ? 'tag-open' : 'tag-unknown'}`}>{textsOn() ? 'On' : 'Not yet'}</span>
         </div>
+        {price && (
+          <div className="row">
+            <span className="row-text">
+              <span className="row-name">Stripe checkout</span>
+              <span className="row-sub">
+                {price.summary}
+                {problems.length > 0 &&
+                  ` Most recent problems: ${problems
+                    .map((x) => `${x.k}, ${x.p!.at.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}: ${x.p!.value}`)
+                    .join(' | ')}`}
+              </span>
+            </span>
+            <span className={`tag ${price.ok ? 'tag-open' : 'tag-unknown'}`}>{price.ok ? 'Ready' : 'Needs attention'}</span>
+          </div>
+        )}
         <div className="row">
           <span className="row-text">
             <span className="row-name">Email sending (Amazon SES)</span>
@@ -256,10 +275,10 @@ export default async function StatusPage() {
         </div>
         <div className="row">
           <span className="row-text">
-            <span className="row-name">Email subscribers</span>
+            <span className="row-name">Subscribers</span>
             <span className="row-sub">
               {subs
-                ? `${subs.confirmed ?? 0} confirmed, ${subs.pending ?? 0} waiting to confirm, ${subs.unsubscribed ?? 0} unsubscribed, ${subs.suppressed ?? 0} blocked`
+                ? `Free email: ${subs.confirmed ?? 0} confirmed, ${subs.pending ?? 0} waiting to confirm, ${subs.unsubscribed ?? 0} unsubscribed, ${subs.suppressed ?? 0} blocked. Paid text: ${texts ? `${texts.active} paying, ${texts.verified} with a confirmed number` : 'not switched on'}.`
                 : subsError || 'No database'}
             </span>
           </span>

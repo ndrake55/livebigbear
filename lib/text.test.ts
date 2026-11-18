@@ -337,3 +337,28 @@ describe('sending alert texts', () => {
     expect(await runMorningTexts(storm, morning, box.send)).toMatchObject({ sent: 0 });
   });
 });
+
+describe('diagnosing problems', () => {
+  it('keeps the latest problem for the status page, without email addresses', async () => {
+    const { noteProblem, readProblem } = await import('./db');
+    expect(await readProblem('checkout')).toBeNull();
+    await noteProblem('checkout', 'Stripe answered 400: first');
+    await noteProblem('checkout', 'Stripe answered 400: Invalid email address: driver@example.com');
+    const p = (await readProblem('checkout'))!;
+    expect(p.value).toBe('Stripe answered 400: Invalid email address: (address)');
+    expect(p.at).toBeInstanceOf(Date);
+  });
+  it('spots a product ID pasted where the price ID belongs, without calling Stripe', async () => {
+    const { checkPrice } = await import('./stripe');
+    process.env.STRIPE_SECRET_KEY = 'sk_test_x';
+    process.env.STRIPE_PRICE_ID = 'prod_123';
+    try {
+      const r = await checkPrice();
+      expect(r.ok).toBe(false);
+      expect(r.summary).toContain('price_');
+    } finally {
+      delete process.env.STRIPE_SECRET_KEY;
+      delete process.env.STRIPE_PRICE_ID;
+    }
+  });
+});

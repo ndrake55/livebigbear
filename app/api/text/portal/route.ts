@@ -1,3 +1,4 @@
+import { noteProblem } from '@/lib/db';
 import { siteUrl } from '@/lib/mailer';
 import { createPortal } from '@/lib/stripe';
 import { formAndOwner, go, manageUrl } from '@/lib/text-http';
@@ -13,7 +14,8 @@ export async function POST(request: Request) {
     const st = await textState(id);
     if (!st.customer) return go(request, manageUrl(token, 'error'));
     return Response.redirect(await createPortal(st.customer, `${siteUrl()}/alerts`), 303);
-  } catch {
+  } catch (e) {
+    await noteProblem('portal', e instanceof Error ? e.message : 'unknown error');
     return go(request, manageUrl(token, 'error'));
   }
 }
