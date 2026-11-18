@@ -4,6 +4,7 @@ import { InstallHint } from './install-hint';
 import { alertsOn } from '@/lib/alerts-on';
 import { SITE } from '@/lib/site';
 import { Nav } from './nav';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Nav alerts={alertsOn()} />
         <InstallHint />
+        <Analytics />
       </body>
     </html>
   );
