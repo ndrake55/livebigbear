@@ -9,7 +9,7 @@ export const isStripeConfigured = () => Boolean(key() && process.env.STRIPE_PRIC
  */
 export const STRIPE_API_VERSION = '2026-10-28.endive';
 
-async function stripe(method: 'GET' | 'POST', path: string, params?: Record<string, string>, pinned = true): Promise<any> {
+async function stripe(method: 'GET' | 'POST' | 'DELETE', path: string, params?: Record<string, string>, pinned = true): Promise<any> {
   const res = await fetch(`https://api.stripe.com/v1${path}`, {
     method,
     headers: {
@@ -42,7 +42,7 @@ export async function createCheckout(opts: { site: string; subscriberId?: string
     integration_identifier: 'lbb_text_plan_qkzvwmtr',
     'phone_number_collection[enabled]': 'true',
     'custom_text[submit][message]':
-      'By subscribing you agree to receive recurring road and weather alert texts from Live Big Bear at the mobile number above. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help.',
+      'By subscribing you agree to receive recurring road and weather alert texts from Live Big Bear at the mobile number above. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help. Renews yearly until canceled. Terms: livebigbear.com/terms Privacy: livebigbear.com/privacy',
   };
   if (opts.subscriberId) params.client_reference_id = opts.subscriberId;
   if (opts.email) params.customer_email = opts.email;
@@ -128,4 +128,20 @@ export async function checkPrice(): Promise<{ ok: boolean; summary: string }> {
   } catch (e) {
     return { ok: false, summary: e instanceof Error ? e.message : 'Could not reach Stripe.' };
   }
+}
+
+/**
+ * The customer a charge belongs to. Dispute and fraud notices name only the charge, so the
+ * customer is looked up at Stripe. Needs "Charges: Read" on a restricted key.
+ */
+export async function chargeCustomer(chargeId: string): Promise<string> {
+  if (!/^(ch|py)_[A-Za-z0-9]{6,200}$/.test(chargeId)) return '';
+  const c = await stripe('GET', `/charges/${chargeId}`);
+  return typeof c.customer === 'string' ? c.customer : String(c.customer?.id ?? '');
+}
+
+/** Ends a subscription at once so it never renews. Needs "Subscriptions: Write" on a restricted key. */
+export async function cancelSubscription(subscriptionId: string): Promise<void> {
+  if (!/^sub_[A-Za-z0-9]{6,200}$/.test(subscriptionId)) return;
+  await stripe('DELETE', `/subscriptions/${subscriptionId}`);
 }

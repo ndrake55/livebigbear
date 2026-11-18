@@ -18,6 +18,7 @@ import { getAir } from '@/lib/air';
 import { getCampgrounds } from '@/lib/camping';
 import { isMailConfigured } from '@/lib/mailer';
 import { ensureEmailTables, subscriberCounts } from '@/lib/subscribers';
+import { legalMissing } from '@/lib/legal';
 import { isSmsConfigured } from '@/lib/sms';
 import { checkPrice, isStripeConfigured } from '@/lib/stripe';
 import { textCounts, textsOn } from '@/lib/text-plan';
@@ -56,7 +57,7 @@ export default async function StatusPage() {
   if (textsOn()) texts = await textCounts().catch(() => null);
   const price = isStripeConfigured() ? await checkPrice() : null;
   const problems = hasDb()
-    ? (await Promise.all(['checkout', 'return', 'portal'].map(async (k) => ({ k, p: await readProblem(k) })))).filter((x) => x.p)
+    ? (await Promise.all(['checkout', 'return', 'portal', 'webhook', 'ended', 'fraud'].map(async (k) => ({ k, p: await readProblem(k) })))).filter((x) => x.p)
     : [];
   const eventsKey = process.env.SES_EVENTS_KEY ?? '';
   const stormPlan = plan(snap.routes, [], new Date());
@@ -245,6 +246,17 @@ export default async function StatusPage() {
           </span>
           <span className={`tag ${textsOn() ? 'tag-open' : 'tag-unknown'}`}>{textsOn() ? 'On' : 'Not yet'}</span>
         </div>
+        <div className="row">
+          <span className="row-text">
+            <span className="row-name">Terms and privacy pages</span>
+            <span className="row-sub">
+              {legalMissing().length === 0
+                ? 'Operator name, contact email and postal address are all set.'
+                : `Missing in Vercel: ${legalMissing().join(', ')}. The pages work without them but should name who runs the site and how to reach you.`}
+            </span>
+          </span>
+          <span className={`tag ${legalMissing().length === 0 ? 'tag-open' : 'tag-unknown'}`}>{legalMissing().length === 0 ? 'Set' : 'Needs attention'}</span>
+        </div>
         {price && (
           <div className="row">
             <span className="row-text">
@@ -252,7 +264,7 @@ export default async function StatusPage() {
               <span className="row-sub">
                 {price.summary}
                 {problems.length > 0 &&
-                  ` Most recent problems: ${problems
+                  ` Most recent notes: ${problems
                     .map((x) => `${x.k}, ${x.p!.at.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}: ${x.p!.value}`)
                     .join(' | ')}`}
               </span>

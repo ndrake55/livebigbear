@@ -362,3 +362,21 @@ describe('diagnosing problems', () => {
     }
   });
 });
+
+describe('refunds and disputes', () => {
+  it('ends the plan for that customer only, once, and says which subscription to cancel', async () => {
+    const { endPlanForCustomer } = await import('./text-plan');
+    const id = await join();
+    const other = await join({ email: 'other@example.com', phone: '+19095550002', customerId: 'cus_2', subscriptionId: 'sub_2' });
+    expect(await endPlanForCustomer('cus_unknown')).toBe('');
+    expect(await endPlanForCustomer('')).toBe('');
+    expect(await endPlanForCustomer('cus_1')).toBe('sub_1');
+    expect((await textState(id)).status).toBe('canceled');
+    expect((await textState(other)).status).toBe('active');
+    // A second notice about the same customer finds nothing left to end.
+    expect(await endPlanForCustomer('cus_1')).toBe('');
+    const box = outbox();
+    expect(await runTextAlerts(storm, closed330, afternoon, box.send)).toMatchObject({ sent: 1 });
+    expect(box.sent[0].to).toBe('+19095550002');
+  });
+});

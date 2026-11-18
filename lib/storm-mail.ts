@@ -2,6 +2,7 @@ import type { RouteSummary } from './caltrans';
 import { getSql } from './db';
 import { type Mail, sendMail, siteUrl } from './mailer';
 import { APPROACHES } from './routes';
+import { legal } from './legal';
 import { isSmsConfigured } from './sms';
 import { HEADLINE, isChains, LABEL, verdict } from './status';
 import { isStripeConfigured } from './stripe';
@@ -121,6 +122,7 @@ export function stormMail(
   let subject = `Big Bear roads this morning: ${v.headline.charAt(0).toLowerCase()}${v.headline.slice(1)}`;
   // Mentioned only once the text plan can actually be bought.
   const textOffer = isSmsConfigured() && isStripeConfigured();
+  const sender = legal();
   let opening = `Road status for ${long}.`;
   let big = v.headline;
   let detail = v.detail;
@@ -162,6 +164,8 @@ export function stormMail(
     ...(textOffer ? [`Want a text the moment a road closes or reopens? $12 a year: ${site}/alerts`, ''] : []),
     ...(manageUrl ? [`Choose your roads and days, or pause: ${manageUrl}`] : []),
     `Stop these emails: ${unsubscribeUrl}`,
+    `Privacy: ${site}/privacy`,
+    ...(sender.postal ? [`${sender.operator}, ${sender.postal}`] : []),
   ].join('\n');
 
   const rows = listed
@@ -179,7 +183,7 @@ export function stormMail(
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">${rows}</table>
 ${extra ? `<p style="margin:16px 0 0;font-size:15px;line-height:1.5">${esc(extra)}</p>` : ''}
 <p style="margin:20px 0 0"><a href="${site}/" style="display:inline-block;background:#1F4E9C;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 22px;border-radius:12px">See live status and cameras</a></p>
-<p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#4A5B6C">Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.${textOffer ? `<br>Want a text the moment a road closes or reopens? <a href="${site}/alerts" style="color:#4A5B6C">Text alerts are $12 a year</a>.` : ''}<br>You are getting this because you signed up at livebigbear.com. ${manageUrl ? `<a href="${manageUrl}" style="color:#4A5B6C">Choose your roads and days</a> · ` : ''}<a href="${unsubscribeUrl}" style="color:#4A5B6C">Unsubscribe</a></p>
+<p style="margin:20px 0 0;font-size:12px;line-height:1.5;color:#4A5B6C">Road status comes from Caltrans and can lag conditions on the road. Always follow posted signs.${textOffer ? `<br>Want a text the moment a road closes or reopens? <a href="${site}/alerts" style="color:#4A5B6C">Text alerts are $12 a year</a>.` : ''}<br>You are getting this because you signed up at livebigbear.com. ${manageUrl ? `<a href="${manageUrl}" style="color:#4A5B6C">Choose your roads and days</a> · ` : ''}<a href="${unsubscribeUrl}" style="color:#4A5B6C">Unsubscribe</a> · <a href="${site}/privacy" style="color:#4A5B6C">Privacy</a>${sender.postal ? `<br>${esc(sender.operator)}, ${esc(sender.postal)}` : ''}</p>
 </div></body></html>`;
   return { to, subject, text, html, unsubscribeUrl: oneClickUrl };
 }

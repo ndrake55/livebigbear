@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { hourLabel, type Prefs, TEXT_CAPS } from '@/lib/prefs';
 import { maskPhone } from '@/lib/sms';
 import type { TextState } from '@/lib/text-plan';
@@ -9,9 +10,10 @@ export const TEXT_PRICE = '$12 a year';
 export function TextConsent() {
   return (
     <p className="note">
-      Pay by card on Stripe, where you also give your mobile number. By continuing you agree to get automated road alert texts from Live Big
+      <strong>Renews every year at $12 until you cancel, which you can do any time from your settings.</strong> Pay by card on Stripe, where
+      you also give your mobile number. By continuing you agree to get automated road alert texts from Live Big
       Bear at that number. How many depends on the weather. Message and data rates may apply. Reply STOP to end or HELP for help. US numbers
-      only.
+      only. See our <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy policy</Link>.
     </p>
   );
 }
