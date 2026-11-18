@@ -25,6 +25,7 @@ export const metadata: Metadata = {
 const mask = (email: string) => email.replace(/^(.{1,2})[^@]*(@.*)$/, '$1•••$2');
 
 const TEXT_NOTES: Record<string, string> = {
+  testplan: 'That plan was a test from before real payments were switched on, so it has been cleared. Nothing was charged. You can buy the plan below.',
   busy: 'Too many tries from this connection. Please wait an hour and try again.',
   unpaid: 'That checkout was not finished, so nothing was charged. You can start again below.',
   error: 'Something went wrong on our side. Nothing was changed. Please try again shortly.',

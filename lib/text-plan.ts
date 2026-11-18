@@ -218,6 +218,17 @@ export async function endPlanForCustomer(customerId: string): Promise<string> {
   return rows[0] ? String(rows[0].stripe_subscription ?? '') : '';
 }
 
+/**
+ * Forgets a plan whose customer Stripe does not know, which happens to anything bought with
+ * test cards before the switch to live payments. The person can then buy the plan for real.
+ */
+export async function forgetUnknownPlan(id: string): Promise<void> {
+  await ensureTextTables();
+  await getSql()`
+    UPDATE email_subscribers SET text_status = 'none', stripe_customer = NULL, stripe_subscription = NULL
+    WHERE id = ${id}::bigint`;
+}
+
 /** STOP, START and the like, as reported by Twilio. */
 export async function applyReply(fromPhone: string, body: string): Promise<'stopped' | 'started' | 'ignored'> {
   const phone = normalizePhone(fromPhone);

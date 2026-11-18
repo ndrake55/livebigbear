@@ -380,3 +380,17 @@ describe('refunds and disputes', () => {
     expect(box.sent[0].to).toBe('+19095550002');
   });
 });
+
+describe('plans left over from test mode', () => {
+  it('can be cleared so the person can buy for real, keeping their proven number', async () => {
+    const { forgetUnknownPlan } = await import('./text-plan');
+    const id = await join();
+    await forgetUnknownPlan(id);
+    expect(await textState(id)).toMatchObject({ status: 'none', customer: '', phone: PHONE });
+    const box = outbox();
+    expect(await runTextAlerts(storm, closed330, afternoon, box.send)).toMatchObject({ sent: 0 });
+    // Buying again with the same number needs no new code.
+    expect(await linkCheckout(paid({ subscriberId: id, customerId: 'cus_live', subscriptionId: 'sub_live' }))).toMatchObject({ id, needsCode: false });
+    expect(await runTextAlerts(storm, closed330, afternoon, box.send)).toMatchObject({ sent: 1 });
+  });
+});
