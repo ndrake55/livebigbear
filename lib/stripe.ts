@@ -3,10 +3,16 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 const key = () => process.env.STRIPE_SECRET_KEY ?? '';
 export const isStripeConfigured = () => Boolean(key() && process.env.STRIPE_PRICE_ID && process.env.STRIPE_WEBHOOK_SECRET);
 
+/**
+ * The Stripe API version this code was written against. Sending it with every request means a
+ * later change on Stripe's side cannot alter the answers until this line is updated on purpose.
+ */
+export const STRIPE_API_VERSION = '2026-10-28.endive';
+
 async function stripe(method: 'GET' | 'POST', path: string, params?: Record<string, string>): Promise<any> {
   const res = await fetch(`https://api.stripe.com/v1${path}`, {
     method,
-    headers: { Authorization: `Bearer ${key()}`, ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
+    headers: { Authorization: `Bearer ${key()}`, 'Stripe-Version': STRIPE_API_VERSION, ...(params ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}) },
     body: params ? new URLSearchParams(params) : undefined,
     signal: AbortSignal.timeout(12000),
     cache: 'no-store',
@@ -24,6 +30,8 @@ export async function createCheckout(opts: { site: string; subscriberId?: string
     'line_items[0][quantity]': '1',
     success_url: `${opts.site}/api/text/return?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${opts.site}/alerts`,
+    // A label for this checkout flow, so it can be told apart in Stripe's dashboard later.
+    integration_identifier: 'lbb_text_plan_qkzvwmtr',
     'phone_number_collection[enabled]': 'true',
     'custom_text[submit][message]':
       'By subscribing you agree to receive recurring road and weather alert texts from Live Big Bear at the mobile number above. Message frequency varies. Message and data rates may apply. Reply STOP to cancel, HELP for help.',

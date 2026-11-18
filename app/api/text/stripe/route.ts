@@ -19,7 +19,9 @@ export async function POST(request: Request) {
   }
   try {
     const obj = event?.data?.object;
-    if (event.type === 'checkout.session.completed') {
+    // Bank debits and similar methods finish paying later, and report it with the second event.
+    // readSession only accepts a checkout that is actually paid, so neither can switch on a plan early.
+    if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
       const paid = readSession(obj);
       const linked = paid ? await linkCheckout(paid) : null;
       if (linked?.needsCode) await sendCode(linked.phone).catch(() => false);
