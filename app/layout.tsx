@@ -3,6 +3,7 @@ import './globals.css';
 import { InstallHint } from './install-hint';
 import { alertsOn } from '@/lib/alerts-on';
 import { SITE } from '@/lib/site';
+import { VisitCounter } from './analytics';
 import { Nav } from './nav';
 
 export const metadata: Metadata = {
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Nav alerts={alertsOn()} />
         <InstallHint />
+        <VisitCounter />
       </body>
     </html>
   );

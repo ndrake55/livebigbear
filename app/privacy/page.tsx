@@ -24,7 +24,7 @@ const SHARED: { who: string; what: string }[] = [
   { who: 'Amazon Web Services (email delivery)', what: 'Your email address and the emails we send you.' },
   { who: 'Twilio (text delivery)', what: 'Your mobile number and the texts we send you.' },
   { who: 'Stripe (payments)', what: 'Everything you enter at checkout. Stripe is the one who collects it.' },
-  { who: 'Vercel (website hosting) and Neon (database)', what: 'They store and serve the site and its data on our behalf.' },
+  { who: 'Vercel (website hosting and visit counts) and Neon (database)', what: 'They store and serve the site and its data on our behalf.' },
 ];
 
 export default function PrivacyPage() {
@@ -94,7 +94,12 @@ export default function PrivacyPage() {
         <p className="lede">
           We use two small cookies, and only when needed. One remembers you on this device for 30 days after you open your alert settings,
           so you do not need a new link each time. The other is set when you rate something, so one device counts once. We use no
-          advertising cookies and no cross-site tracking. Because we do not track you across other websites, a “Do Not Track” signal from
+          advertising cookies and no cross-site tracking.
+        </p>
+        <p className="lede">
+          We count visits with Vercel Web Analytics, to see which pages are used. It sets no cookies and does not follow you to other
+          sites. It records the page, the site you came from, and your general device type and country. Private details in a page
+          address, such as a settings link, are removed before anything is recorded. Because we do not track you across other websites, a “Do Not Track” signal from
           your browser changes nothing here.
         </p>
         <p className="lede">

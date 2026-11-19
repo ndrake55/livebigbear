@@ -12,7 +12,7 @@ export const legal = () => ({
 });
 
 /** The date the Terms and Privacy pages last changed. Update it whenever their wording changes. */
-export const LEGAL_UPDATED = 'November 18, 2026';
+export const LEGAL_UPDATED = 'November 19, 2026';
 
 export const legalMissing = () => {
   const l = legal();
